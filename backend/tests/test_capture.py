@@ -76,6 +76,24 @@ async def test_capture_lifecycle_filters_and_limits(ctx) -> None:  # type: ignor
     assert any(a["name"] == "devices_start.json" for a in info["artifacts"])
 
 
+async def test_debug_flood_does_not_evict_warnings(ctx) -> None:  # type: ignore[no-untyped-def]
+    c, st = ctx
+    r = await c.post("/api/v1/captures", json={"max_events": 100})
+    cid = r.json()["id"]
+    st.bus.publish(ev(1, "error"))
+    st.bus.publish(ev(2, "warning"))
+    for i in range(500):
+        st.bus.publish(ev(100 + i, "debug"))
+    st.bus.flush()
+    info = (await c.post(f"/api/v1/captures/{cid}/stop")).json()
+    assert info["stats"]["events_kept"] == 100 and info["stats"]["events_dropped_oldest"] == 402
+    evs = (await c.get(f"/api/v1/captures/{cid}/events")).json()
+    assert len(evs) == 100
+    assert [e["severity"] for e in evs[:2]] == ["error", "warning"]  # the evidence survived the flood
+    notable = (await c.get(f"/api/v1/captures/{cid}/events?min_severity=warning")).json()
+    assert [e["severity"] for e in notable] == ["error", "warning"]
+
+
 async def test_limits_are_validated_and_concurrency_capped(ctx) -> None:  # type: ignore[no-untyped-def]
     c, _ = ctx
     assert (await c.post("/api/v1/captures", json={"max_events": 10**9})).status_code == 422

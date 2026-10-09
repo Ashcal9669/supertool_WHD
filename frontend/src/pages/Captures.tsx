@@ -117,7 +117,7 @@ function Detail({ c }: { c: CaptureInfo }) {
         <label className="flex items-center gap-1 text-[11px]"><input type="checkbox" checked={redact} onChange={(e) => setRedact(e.target.checked)} /> mask MAC addresses</label>
       </div>
       <KV cols={2} rows={[
-        ["events kept / seen", `${c.stats.events_kept} / ${c.stats.events_seen}`], ["dropped (oldest)", String(c.stats.events_dropped_oldest)],
+        ["events kept / seen", `${c.stats.events_kept} / ${c.stats.events_seen}`], ["dropped (debug/info first, then oldest)", String(c.stats.events_dropped_oldest)],
         ["size", bytes(c.stats.bytes_kept)], ["telemetry samples", String(c.stats.telemetry_samples)],
         ["span", c.stats.first_ts_ns && c.stats.last_ts_ns ? `${bootSec(c.stats.first_ts_ns)} → ${bootSec(c.stats.last_ts_ns)} (boottime s)` : null],
         ["stop reason", c.stats.stop_reason], ["severity", Object.entries(c.stats.by_severity).map(([k, v]) => `${k}:${v}`).join(" ")],

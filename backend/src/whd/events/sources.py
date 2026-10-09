@@ -90,6 +90,8 @@ def make_event(
 
 class Source:
     name = "source"
+    # seconds between retries after Unavailable; None = give up (for sources that start on demand)
+    retry_unavailable_s: float | None = None
 
     def __init__(self, ctx: Ctx) -> None:
         self.ctx = ctx
@@ -100,9 +102,12 @@ class Source:
 
     async def supervise(self) -> None:
         backoff = 1.0
+        last_unavailable: str | None = None
         while True:
             try:
                 self.status.state = "running"
+                if last_unavailable is not None:
+                    self.status.detail = ""
                 await self.run()
                 return
             except asyncio.CancelledError:
@@ -110,8 +115,12 @@ class Source:
                 raise
             except Unavailable as e:
                 self.status.state, self.status.detail = "unavailable", str(e)
-                log.info("source unavailable", extra={"source": self.name, "detail": str(e)})
-                return
+                if last_unavailable != str(e):
+                    last_unavailable = str(e)
+                    log.info("source unavailable", extra={"source": self.name, "detail": str(e)})
+                if self.retry_unavailable_s is None:
+                    return
+                await asyncio.sleep(self.retry_unavailable_s)
             except Exception as e:
                 self.status.state, self.status.detail = "error", repr(e)
                 self.status.errors += 1
@@ -218,7 +227,12 @@ class JournalSource(Source):
         else:
             args += ["-b", "-n", str(self.backfill)]
         proc = await asyncio.create_subprocess_exec(
-            *args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE, limit=1 << 22
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            limit=1 << 22,
+            # own session: a terminal Ctrl+C must not kill journalctl before we shut down cleanly
+            start_new_session=True,
         )
         assert proc.stdout is not None
         n = 0

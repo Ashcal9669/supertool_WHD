@@ -19,8 +19,10 @@ from whd.events.sources import (
     Ctx,
     JournalSource,
     RtnlSource,
+    Source,
     SysfsPoller,
     UeventSource,
+    Unavailable,
     make_event,
     parse_trace_line,
 )
@@ -193,6 +195,35 @@ def test_poller_diffs(ctx: Ctx) -> None:
     assert set(kinds) == {"pci.link.changed", "pci.aer.counter.correctable"}
     assert kinds["pci.aer.counter.correctable"].data["deltas"] == {"BadTLP": 2, "TOTAL_ERR_COR": 2}
     assert "polling" in kinds["pci.link.changed"].explanation
+
+
+async def test_source_retries_when_helper_appears_late(ctx: Ctx) -> None:
+    class Late(Source):
+        name = "late"
+        retry_unavailable_s = 0.01
+        calls = 0
+
+        async def run(self) -> None:
+            Late.calls += 1
+            if Late.calls < 3:
+                raise Unavailable("whd-helper not running")
+
+    src = Late(ctx)
+    await asyncio.wait_for(src.supervise(), 2)
+    assert Late.calls == 3
+    assert src.status.detail == ""
+
+
+async def test_on_demand_source_gives_up_when_unavailable(ctx: Ctx) -> None:
+    class Once(Source):
+        name = "once"
+
+        async def run(self) -> None:
+            raise Unavailable("nothing to do")
+
+    src = Once(ctx)
+    await asyncio.wait_for(src.supervise(), 2)
+    assert (src.status.state, src.status.detail) == ("unavailable", "nothing to do")
 
 
 async def test_bus_bounded_queue_and_persistence(tmp_path: Path) -> None:

@@ -13,7 +13,7 @@ from whd.capture.importer import MAX_UPLOAD_BYTES, ImportError_, parse_upload
 from whd.capture.manager import CaptureConfig, CaptureInfo
 from whd.model.common import Model
 from whd.model.device import Device
-from whd.model.events import Event, TelemetrySample
+from whd.model.events import SEVERITY_RANK, Event, Severity, TelemetrySample
 from whd.state import AppState
 
 router = APIRouter(prefix="/api/v1")
@@ -64,13 +64,20 @@ async def delete_capture(cid: str, _: str = Auth, st: AppState = State) -> dict[
 
 @router.get("/captures/{cid}/events", response_model=list[Event])
 async def capture_events(
-    cid: str, offset: int = 0, limit: int = Query(2000, ge=1, le=20000), _: str = Auth, st: AppState = State
+    cid: str,
+    offset: int = 0,
+    limit: int = Query(2000, ge=1, le=20000),
+    min_severity: Severity | None = None,
+    _: str = Auth,
+    st: AppState = State,
 ) -> list[Event]:
     try:
         await _mgr(st).info(cid)
     except KeyError:
         raise HTTPException(404, "unknown capture") from None
     evs = await _mgr(st).events(cid)
+    if min_severity:
+        evs = [e for e in evs if SEVERITY_RANK[e.severity] >= SEVERITY_RANK[min_severity]]
     return evs[offset : offset + limit]  # type: ignore[no-any-return]
 
 

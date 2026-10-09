@@ -8113,6 +8113,30 @@
        "title": "Limit",
        "type": "integer"
       }
+     },
+     {
+      "in": "query",
+      "name": "min_severity",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "enum": [
+          "debug",
+          "info",
+          "notice",
+          "warning",
+          "error",
+          "critical"
+         ],
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Min Severity"
+      }
      }
     ],
     "responses": {

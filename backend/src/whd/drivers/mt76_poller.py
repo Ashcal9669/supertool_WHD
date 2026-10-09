@@ -18,6 +18,7 @@ from whd.model.events import TelemetrySample
 
 class Mt76Poller(Source):
     name = "mt76"
+    retry_unavailable_s = 5.0  # the privileged helper may be started after the server
 
     def __init__(self, ctx: Any, interval: float = 1.0) -> None:
         super().__init__(ctx)

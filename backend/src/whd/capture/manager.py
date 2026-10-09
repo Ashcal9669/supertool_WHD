@@ -28,7 +28,7 @@ from whd import __version__
 from whd.capture.importer import Imported, finalize
 from whd.clock import boottime_ns
 from whd.model.common import Model
-from whd.model.events import Event, EventFilter, Severity, TelemetrySample
+from whd.model.events import SEVERITY_RANK, Event, EventFilter, Severity, TelemetrySample
 
 if TYPE_CHECKING:
     from whd.state import AppState
@@ -104,7 +104,11 @@ class _Live:
     deadline: float
     created_at: float = field(default_factory=time.time)
     seq: int = 0
-    buf: deque[tuple[int, Event, int]] = field(default_factory=deque)  # (seq, event, size)
+    # kept events as (seq, size), split so a debug/info flood evicts only its own kind: notice+ events
+    # (warnings, errors, resets) are the evidence, and are dropped only when nothing lower-severity is left
+    low: deque[tuple[int, int]] = field(default_factory=deque)
+    high: deque[tuple[int, int]] = field(default_factory=deque)
+    evicted: list[int] = field(default_factory=list)  # seqs to delete from the DB on next flush
     pending: list[tuple[int, Event]] = field(default_factory=list)
     tel: deque[TelemetrySample] = field(default_factory=lambda: deque(maxlen=HARD_MAX_TELEMETRY))
     stats: CaptureStats = field(default_factory=CaptureStats)
@@ -311,7 +315,9 @@ class CaptureManager:
                 continue
             lv.seq += 1
             size = len(e.model_dump_json())
-            lv.buf.append((lv.seq, e, size))
+            (lv.low if SEVERITY_RANK[e.severity] < SEVERITY_RANK["notice"] else lv.high).append(
+                (lv.seq, size)
+            )
             lv.pending.append((lv.seq, e))
             s = lv.stats
             s.events_seen += 1
@@ -323,8 +329,11 @@ class CaptureManager:
             s.last_ts_ns = e.ts_boottime_ns if s.last_ts_ns is None else max(s.last_ts_ns, e.ts_boottime_ns)
             s.by_severity[e.severity] = s.by_severity.get(e.severity, 0) + 1
             s.by_category[e.category] = s.by_category.get(e.category, 0) + 1
-            while lv.buf and (len(lv.buf) > lv.cfg.max_events or s.bytes_kept > lv.cfg.max_bytes):
-                _, _, sz = lv.buf.popleft()
+            while (lv.low or lv.high) and (
+                s.events_kept > lv.cfg.max_events or s.bytes_kept > lv.cfg.max_bytes
+            ):
+                old_seq, sz = (lv.low or lv.high).popleft()
+                lv.evicted.append(old_seq)
                 s.events_kept -= 1
                 s.bytes_kept -= sz
                 s.events_dropped_oldest += 1
@@ -345,14 +354,14 @@ class CaptureManager:
         batch, lv.pending = lv.pending, []
         start_seq = batch[0][0]
         await asyncio.to_thread(self.st.store.capture_add_events, lv.id, start_seq, [e for _, e in batch])
-        lo = lv.buf[0][0] if lv.buf else lv.seq + 1
-        if lo > 1:
-            await asyncio.to_thread(self._trim, lv.id, lo)
+        if lv.evicted:
+            gone, lv.evicted = lv.evicted, []
+            await asyncio.to_thread(self._trim, lv.id, gone)
 
-    def _trim(self, cid: str, min_seq: int) -> None:
+    def _trim(self, cid: str, seqs: list[int]) -> None:
         with self.st.store.lock:
-            self.st.store.conn.execute(
-                "DELETE FROM capture_events WHERE capture_id=? AND seq<?", (cid, min_seq)
+            self.st.store.conn.executemany(
+                "DELETE FROM capture_events WHERE capture_id=? AND seq=?", [(cid, q) for q in seqs]
             )
 
     async def _persist(self, lv: _Live, state: State, stopped_ns: int | None = None) -> None:

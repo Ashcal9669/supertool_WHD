@@ -3399,6 +3399,7 @@ export interface operations {
             query?: {
                 offset?: number;
                 limit?: number;
+                min_severity?: ("debug" | "info" | "notice" | "warning" | "error" | "critical") | null;
             };
             header?: never;
             path: {

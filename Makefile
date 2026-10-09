@@ -31,12 +31,14 @@ HOST ?= 127.0.0.1
 LOOPBACK := 127.0.0.1 localhost ::1
 
 serve:            ## run WHD on $(HOST):$(PORT) against live hardware (non-loopback HOST enables remote mode)
+	@[ -S $(HELPER_SOCKET) ] || echo "WHD: whd-helper NOT running -> mt76 tab, queues, tracing and PCI config will be unavailable. In another terminal: make helper"
 	cd $(BACKEND) && uv run whd serve --host $(HOST) --port $(PORT) $(if $(filter $(LOOPBACK),$(HOST)),,--allow-remote)
 
 serve-remote:     ## bind to the address your SSH session arrived on; browse http://<that address>:$(PORT) (token required)
 	@h=$$(echo "$$SSH_CONNECTION" | awk '{print $$3}'); \
 	[ -n "$$h" ] || { echo "not in an SSH session; use: make serve HOST=<this host's address>"; exit 1; }; \
 	echo "WHD: http://$$h:$(PORT)  (login with: cd backend && uv run whd token --show)"; \
+	[ -S $(HELPER_SOCKET) ] || echo "WHD: whd-helper NOT running -> mt76 tab, queues, tracing and PCI config will be unavailable. In another terminal: make helper"; \
 	cd $(BACKEND) && uv run whd serve --host $$h --port $(PORT) --allow-remote
 
 demo:             ## run WHD in DEMO mode with fixture scenario $(SCENARIO)

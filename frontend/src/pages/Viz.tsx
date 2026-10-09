@@ -32,7 +32,16 @@ export function VizPage() {
   const liveId = sel || present[0]?.id;
   const hist = useQuery({ queryKey: ["viz-hist", liveId], enabled: !capId && !!liveId, queryFn: () => api<EventPage>(`/events?device_id=${encodeURIComponent(liveId!)}&limit=3000&min_severity=debug&order=desc`), refetchInterval: 10000 });
   // ---- capture source
-  const capEvents = useQuery({ queryKey: ["cap-events-all", capId], enabled: !!capId, queryFn: () => api<WhdEvent[]>(`/captures/${capId}/events?limit=20000`) });
+  const capEvents = useQuery({ queryKey: ["cap-events-all", capId], enabled: !!capId, queryFn: async () => {
+    // info+ only (a debug printk flood would otherwise crowd out the events these views are about), all pages
+    const out: WhdEvent[] = [];
+    for (let offset = 0; offset < 200000; offset += 20000) {
+      const page = await api<WhdEvent[]>(`/captures/${capId}/events?limit=20000&offset=${offset}&min_severity=info`);
+      out.push(...page);
+      if (page.length < 20000) break;
+    }
+    return out;
+  } });
   const capTel = useQuery({ queryKey: ["cap-tel", capId], enabled: !!capId, queryFn: () => api<TelemetrySample[]>(`/captures/${capId}/telemetry`) });
   const capDevs = useQuery({ queryKey: ["cap-devs", capId], enabled: !!capId, queryFn: () => api<Device[]>(`/captures/${capId}/devices`) });
   const liveDev = useDevice(capId ? undefined : liveId);
