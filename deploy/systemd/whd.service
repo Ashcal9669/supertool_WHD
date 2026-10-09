@@ -1,0 +1,38 @@
+# EXAMPLE unit - not installed by WHD. Review before use.
+# Runs the web server as an unprivileged dedicated user. Privileged reads go through whd-helper.
+[Unit]
+Description=Wireless Hardware Debugger (web server)
+After=network.target whd-helper.service
+Wants=whd-helper.service
+
+[Service]
+Type=simple
+User=whd
+Group=whd
+SupplementaryGroups=systemd-journal
+StateDirectory=whd
+ConfigurationDirectory=whd
+Environment=WHD_STATE_DIR=/var/lib/whd
+Environment=WHD_CONFIG_DIR=/etc/whd
+Environment=WHD_HELPER_SOCKET=/run/whd/helper.sock
+Environment=WHD_HOST=127.0.0.1
+Environment=WHD_PORT=8787
+ExecStart=/opt/whd/backend/.venv/bin/whd serve
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+[Install]
+WantedBy=multi-user.target

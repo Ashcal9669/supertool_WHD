@@ -1,0 +1,23 @@
+{
+ "mt7921u": {
+  "filename": [
+   "/lib/modules/6.12.0-synthetic/kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921u.ko.xz"
+  ],
+  "description": [
+   "MediaTek MT7921U (USB) wireless driver"
+  ],
+  "license": [
+   "Dual BSD/GPL"
+  ],
+  "firmware": [
+   "mediatek/WIFI_MT7961_patch_mcu_1_2_hdr.bin",
+   "mediatek/WIFI_RAM_CODE_MT7961_1.bin"
+  ],
+  "alias": [
+   "usb:v0E8Dp7961d*dc*dsc*dp*icFFiscFFipFFin*"
+  ],
+  "vermagic": [
+   "6.12.0-synthetic SMP preempt mod_unload"
+  ]
+ }
+}

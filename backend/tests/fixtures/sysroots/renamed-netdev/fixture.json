@@ -1,0 +1,16 @@
+{
+ "kind": "derived",
+ "description": "Derived from mt7927-pcie-host: netdev wlp7s0 renamed to wlx_renamed and phy1 renumbered to phy3 (identity must stay stable).",
+ "recorded_at": "2026-10-09T06:14:28Z",
+ "uname": {
+  "release": "7.2.0-rc1-mt7927-monitor-v3",
+  "machine": "x86_64",
+  "version": "#4 SMP PREEMPT_DYNAMIC Tue Jul 14 21:32:54 EDT 2026",
+  "nodename": "recorded-host"
+ },
+ "macs_scrubbed": true,
+ "devices": [
+  "pci:0000:07:00.0:14c3:7927"
+ ],
+ "tools": {}
+}

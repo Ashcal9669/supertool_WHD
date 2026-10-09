@@ -1,0 +1,14 @@
+{
+ "wlan0": {
+  "driver": "mt7921u",
+  "version": "6.12.0-synthetic",
+  "fw_version": "____010000-SYNTHETIC",
+  "bus_info": "2-1:1.0",
+  "erom_version": "",
+  "n_stats": 0,
+  "n_priv_flags": 0,
+  "regdump_len": 0,
+  "eedump_len": 0,
+  "testinfo_len": 0
+ }
+}

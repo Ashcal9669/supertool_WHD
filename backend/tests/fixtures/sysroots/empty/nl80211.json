@@ -1,0 +1,8 @@
+{
+ "family_id": 31,
+ "multicast_groups": {},
+ "requests": {
+  "NL80211_CMD_GET_WIPHY:0400ae00:dump": [],
+  "NL80211_CMD_GET_INTERFACE::dump": []
+ }
+}

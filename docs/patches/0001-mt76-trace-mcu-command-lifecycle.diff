@@ -1,0 +1,111 @@
+--- a/trace.h
++++ b/trace.h
+@@ -101,6 +101,68 @@
+ 	TP_ARGS(dev, wcid, pktid)
+ );
+ 
++TRACE_EVENT(mcu_send,
++	TP_PROTO(struct mt76_dev *dev, int cmd, int seq, int len, bool wait_resp,
++		 int retry),
++
++	TP_ARGS(dev, cmd, seq, len, wait_resp, retry),
++
++	TP_STRUCT__entry(
++		DEV_ENTRY
++		__field(u32, cmd)
++		__field(int, seq)
++		__field(int, len)
++		__field(bool, wait_resp)
++		__field(int, retry)
++	),
++
++	TP_fast_assign(
++		DEVICE_ASSIGN;
++		__entry->cmd = cmd;
++		__entry->seq = seq;
++		__entry->len = len;
++		__entry->wait_resp = wait_resp;
++		__entry->retry = retry;
++	),
++
++	TP_printk(
++		DEV_PR_FMT " cmd=%08x seq=%d len=%d wait_resp=%d retry=%d",
++		DEV_PR_ARG, __entry->cmd, __entry->seq, __entry->len,
++		__entry->wait_resp, __entry->retry
++	)
++);
++
++TRACE_EVENT(mcu_resp,
++	TP_PROTO(struct mt76_dev *dev, int cmd, int seq, int ret,
++		 bool timeout, u32 latency_us),
++
++	TP_ARGS(dev, cmd, seq, ret, timeout, latency_us),
++
++	TP_STRUCT__entry(
++		DEV_ENTRY
++		__field(u32, cmd)
++		__field(int, seq)
++		__field(int, ret)
++		__field(bool, timeout)
++		__field(u32, latency_us)
++	),
++
++	TP_fast_assign(
++		DEVICE_ASSIGN;
++		__entry->cmd = cmd;
++		__entry->seq = seq;
++		__entry->ret = ret;
++		__entry->timeout = timeout;
++		__entry->latency_us = latency_us;
++	),
++
++	TP_printk(
++		DEV_PR_FMT " cmd=%08x seq=%d ret=%d timeout=%d latency_us=%u",
++		DEV_PR_ARG, __entry->cmd, __entry->seq, __entry->ret,
++		__entry->timeout, __entry->latency_us
++	)
++);
++
+ #endif
+ 
+ #undef TRACE_INCLUDE_PATH
+--- a/mcu.c
++++ b/mcu.c
+@@ -4,6 +4,7 @@
+  */
+ 
+ #include "mt76.h"
++#include "trace.h"
+ 
+ struct sk_buff *
+ __mt76_mcu_msg_alloc(struct mt76_dev *dev, const void *data,
+@@ -76,7 +77,8 @@
+ 	unsigned int retry = 0;
+ 	struct sk_buff *orig_skb = NULL;
+ 	unsigned long expires;
+-	int ret, seq;
++	ktime_t start;
++	int ret, seq = -1, len;
+ 
+ 	if (ret_skb)
+ 		*ret_skb = NULL;
+@@ -102,7 +104,10 @@
+ 	/* orig skb might be needed for retry, mcu_skb_send_msg consumes it */
+ 	if (orig_skb)
+ 		skb_get(orig_skb);
++	len = skb->len;
++	start = ktime_get();
+ 	ret = dev->mcu_ops->mcu_skb_send_msg(dev, skb, cmd, wait_resp ? &seq : NULL);
++	trace_mcu_send(dev, cmd, wait_resp ? seq : -1, len, wait_resp, retry);
+ 	if (ret < 0)
+ 		goto out;
+ 
+@@ -124,6 +129,8 @@
+ 		}
+ 
+ 		ret = dev->mcu_ops->mcu_parse_response(dev, cmd, skb, seq);
++		trace_mcu_resp(dev, cmd, seq, ret, !skb,
++			       (u32)ktime_us_delta(ktime_get(), start));
+ 		if (!ret && ret_skb)
+ 			*ret_skb = skb;
+ 		else

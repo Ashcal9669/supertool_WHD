@@ -1,0 +1,7 @@
+kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921u.ko.xz: kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921-common.ko.xz kernel/drivers/net/wireless/mediatek/mt76/mt76-usb.ko.xz kernel/net/mac80211/mac80211.ko.xz kernel/net/wireless/cfg80211.ko.xz
+kernel/drivers/net/wireless/mediatek/mt76/mt7921/mt7921-common.ko.xz: kernel/net/wireless/cfg80211.ko.xz
+kernel/drivers/net/wireless/mediatek/mt76/mt76-usb.ko.xz:
+kernel/net/mac80211/mac80211.ko.xz: kernel/net/wireless/cfg80211.ko.xz
+kernel/net/wireless/cfg80211.ko.xz:
+kernel/drivers/bluetooth/btusb.ko.xz: kernel/net/bluetooth/bluetooth.ko.xz
+kernel/net/bluetooth/bluetooth.ko.xz:

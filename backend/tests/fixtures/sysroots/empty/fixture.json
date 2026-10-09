@@ -1,0 +1,10 @@
+{
+ "kind": "synthetic",
+ "description": "Host with no wireless devices.",
+ "uname": {
+  "release": "7.2.0-rc1-mt7927-monitor-v3",
+  "machine": "x86_64",
+  "version": "#4 SMP PREEMPT_DYNAMIC Tue Jul 14 21:32:54 EDT 2026",
+  "nodename": "recorded-host"
+ }
+}

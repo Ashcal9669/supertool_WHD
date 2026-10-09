@@ -1,0 +1,23 @@
+14c3  MEDIATEK Corp.
+	0608  MT7921K (RZ608) Wi-Fi 6E 80MHz
+	0616  MT7922 802.11ax PCI Express Wireless Network Adapter
+	0717  MT7925 (RZ717) Wi-Fi 7 160MHz
+	4d75  T700 5G Modem [5G Solution 5000]
+	7603  MT7603E 802.11bgn PCI Express Wireless Network Adapter
+	7612  MT7612E 802.11acbgn PCI Express Wireless Network Adapter
+	7615  MT7615E 802.11ac PCI Express Wireless Network Adapter
+	7630  MT7630e 802.11bgn Wireless Network Adapter
+	7650  MT7650 802.11ac
+# MT7612E too?
+	7662  MT7662E 802.11ac PCI Express Wireless Network Adapter
+	7663  MT7663 802.11ac PCI Express Wireless Network Adapter
+	7915  MT7915E 802.11ax PCI Express Wireless Network Adapter
+	7916  MT7905D/MT7975
+# WiFi 6E capable
+	7922  MT7922 802.11ax PCI Express Wireless Network Adapter
+		1a3b 5300  ASUS PCE-AXE59BT
+	7961  MT7921 802.11ax PCI Express Wireless Network Adapter
+	7988  MT7988 PCI Express Host Bridge [Filogic 880]
+	7990  MT7996 802.11be PCI Express Wireless Network Adapter (Port 0)
+	7991  MT7996 802.11be PCI Express Wireless Network Adapter (Port 1)
+	8650  MT7650 Bluetooth

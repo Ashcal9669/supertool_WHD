@@ -1,0 +1,14 @@
+{
+ "wlp7s0": {
+  "driver": "mt7925e_git",
+  "version": "7.2.0-rc1-mt7927-monitor-v3",
+  "fw_version": "____000000-20260414134255",
+  "bus_info": "0000:07:00.0",
+  "erom_version": "",
+  "n_stats": 107,
+  "n_priv_flags": 0,
+  "regdump_len": 0,
+  "eedump_len": 0,
+  "testinfo_len": 0
+ }
+}

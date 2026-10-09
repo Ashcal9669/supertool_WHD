@@ -1,0 +1,29 @@
+# EXAMPLE unit - not installed by WHD. Review before use.
+# The helper is the ONLY root component. It exposes a fixed set of read-only verbs on a Unix socket that only the
+# `whd` group may connect to, and verifies SO_PEERCRED on every connection.
+[Unit]
+Description=Wireless Hardware Debugger (privileged read-only helper)
+After=local-fs.target
+
+[Service]
+Type=simple
+RuntimeDirectory=whd
+RuntimeDirectoryMode=0750
+ExecStart=/opt/whd/backend/.venv/bin/python -m whd.helper.server --socket /run/whd/helper.sock --group whd
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+# tracefs/debugfs are kernel filesystems; the helper creates and removes only instances/whd inside tracefs.
+ReadWritePaths=/sys/kernel/tracing
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=multi-user.target
