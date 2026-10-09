@@ -32,3 +32,4 @@ export type DiagnosticReport = S["DiagnosticReport"];
 export type Hypothesis = S["Hypothesis"];
 export type OllamaStatus = S["OllamaStatus"];
 export type LlmSummary = S["Summary"];
+export type ImportResult = S["ImportResult"];

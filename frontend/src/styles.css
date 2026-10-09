@@ -32,3 +32,6 @@ body {
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-thumb { background: #22304f; border-radius: 4px; }
 .react-flow__attribution { display: none; }
+
+@keyframes whd-flash { from { background-color: rgba(34, 211, 238, 0.18); } to { background-color: transparent; } }
+.whd-flash { animation: whd-flash 1.2s ease-out; }

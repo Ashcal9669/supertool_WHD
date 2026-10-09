@@ -33,6 +33,7 @@ export interface StreamState {
 
 const MAX_EVENTS = 5000;
 const MAX_POINTS = 900;
+const FLUSH_MS = 250;
 
 type Listener = () => void;
 
@@ -85,6 +86,7 @@ class EventStream {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: "filter", ...this.toParams(f) }));
     }
+    this.buf = [];
     this.emit({ events: [], lastId: this.state.lastId });
   }
 
@@ -132,6 +134,23 @@ class EventStream {
     this.ws = null;
   }
 
+  // Events arrive far faster than the UI needs to repaint (a trace can deliver thousands per second).
+  // Buffer them and publish one new state object at most every FLUSH_MS.
+  private buf: WhdEvent[] = [];
+  private flushTimer: ReturnType<typeof setTimeout> | null = null;
+  private scheduleFlush() {
+    if (this.flushTimer) return;
+    this.flushTimer = setTimeout(() => {
+      this.flushTimer = null;
+      if (this.buf.length === 0) return;
+      const merged = this.state.events.concat(this.buf);
+      const events = merged.length > MAX_EVENTS ? merged.slice(merged.length - MAX_EVENTS) : merged;
+      const lastId = this.buf.reduce((m, e) => Math.max(m, e.id ?? 0), this.state.lastId ?? 0);
+      this.buf = [];
+      this.emit({ events, lastId });
+    }, FLUSH_MS);
+  }
+
   private handle(msg: Record<string, unknown>) {
     switch (msg.type) {
       case "hello":
@@ -139,9 +158,8 @@ class EventStream {
         break;
       case "event": {
         const e = msg.event as WhdEvent;
-        const events = this.state.events.length >= MAX_EVENTS ? this.state.events.slice(-MAX_EVENTS + 1) : this.state.events.slice();
-        events.push(e);
-        this.emit({ events, lastId: Math.max(this.state.lastId ?? 0, e.id ?? 0) });
+        this.buf.push(e);
+        this.scheduleFlush();
         this.eventListeners.forEach((fn) => fn(e));
         break;
       }

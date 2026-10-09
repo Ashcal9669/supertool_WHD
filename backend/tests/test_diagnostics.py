@@ -150,11 +150,11 @@ def test_unattributed_events_flagged() -> None:
 def test_prompt_contains_report_only_and_masks_macs() -> None:
     evs = load("mt7927-pcie-host")
     rep = engine.analyze(evs, devices(), helper_ok=True)
-    rep.observations[0].text += " peer 8c:ed:e1:98:cc:18"
+    rep.observations[0].text += " peer 02:ee:aa:11:22:33"
     p = report_for_prompt(rep, redact=True)
-    assert "8c:ed:e1:98:cc:18" not in p and "8c:ed:e1:xx:xx:01" in p
+    assert "02:ee:aa:11:22:33" not in p and "02:ee:aa:xx:xx:" in p
     assert '"raw"' not in p and "ts_wall" not in p  # no raw event payloads
-    assert "8c:ed:e1:98:cc:18" in report_for_prompt(rep, redact=False)
+    assert "02:ee:aa:11:22:33" in report_for_prompt(rep, redact=False)
 
 
 def test_summary_checks_flag_ungrounded_output() -> None:

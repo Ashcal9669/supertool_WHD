@@ -18,6 +18,7 @@ TsSource = Literal[
     "poll_boottime",  # derived by WHD from a periodic read; CLOCK_BOOTTIME of the read
     "netlink_boottime",  # kernel-provided boottime value inside the message (e.g. ASSOC_AT_BOOTTIME)
     "usbmon_monotonic",  # usbmon text timestamp (CLOCK_MONOTONIC microseconds), converted
+    "imported_wall_clock",  # imported log with only a wall-clock stamp; used as an ordering key, not CLOCK_BOOTTIME
     "recorded",  # replayed from a capture/fixture: original provenance preserved in ts_raw
 ]
 

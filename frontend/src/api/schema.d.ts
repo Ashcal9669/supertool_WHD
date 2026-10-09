@@ -73,6 +73,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/captures/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Import Capture
+         * @description Upload a capture file (raw request body, any supported format) and store it as an imported capture.
+         */
+        post: operations["import_capture_api_v1_captures_import_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/captures/{cid}": {
         parameters: {
             query?: never;
@@ -108,6 +128,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/captures/{cid}/devices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Capture Devices
+         * @description Device inventory snapshot stored with a capture (empty when the source had none).
+         */
+        get: operations["capture_devices_api_v1_captures__cid__devices_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/captures/{cid}/events": {
         parameters: {
             query?: never;
@@ -134,6 +174,23 @@ export interface paths {
         };
         /** Export Capture */
         get: operations["export_capture_api_v1_captures__cid__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/captures/{cid}/origin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Capture Origin */
+        get: operations["capture_origin_api_v1_captures__cid__origin_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -991,7 +1048,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "running" | "stopped" | "expired" | "error";
+            state: "running" | "stopped" | "expired" | "error" | "imported";
             stats: components["schemas"]["CaptureStats"];
             /** Stopped Ns */
             stopped_ns: number | null;
@@ -1428,7 +1485,7 @@ export interface components {
              * Ts Source
              * @enum {string}
              */
-            ts_source: "tracefs_boot" | "tracefs_mono" | "kernel_printk" | "journal_monotonic" | "receive_boottime" | "poll_boottime" | "netlink_boottime" | "usbmon_monotonic" | "recorded";
+            ts_source: "tracefs_boot" | "tracefs_mono" | "kernel_printk" | "journal_monotonic" | "receive_boottime" | "poll_boottime" | "netlink_boottime" | "usbmon_monotonic" | "imported_wall_clock" | "recorded";
             /**
              * Ts Wall
              * @description Derived wall clock (unix seconds) - display only
@@ -1554,6 +1611,24 @@ export interface components {
             title: string;
             /** Unknowns */
             unknowns: string[];
+        };
+        /** ImportResult */
+        ImportResult: {
+            capture: components["schemas"]["CaptureInfo"];
+            /** Devices In Snapshot */
+            devices_in_snapshot: number;
+            /** Format */
+            format: string;
+            /** Origin */
+            origin: {
+                [key: string]: unknown;
+            };
+            /** Skipped Lines */
+            skipped_lines: number;
+            /** Telemetry Samples */
+            telemetry_samples: number;
+            /** Warnings */
+            warnings: string[];
         };
         /** Incident */
         Incident: {
@@ -2326,6 +2401,11 @@ export interface components {
             event_count: number;
             /** First Ns */
             first_ns: number | null;
+            /**
+             * Imported
+             * @default false
+             */
+            imported: boolean;
             /** Last Ns */
             last_ns: number | null;
             /** Significant Event Count */
@@ -3153,6 +3233,39 @@ export interface operations {
             };
         };
     };
+    import_capture_api_v1_captures_import_post: {
+        parameters: {
+            query?: {
+                filename?: string;
+                name?: string | null;
+                group_hint?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImportResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_capture_api_v1_captures__cid__get: {
         parameters: {
             query?: never;
@@ -3250,6 +3363,37 @@ export interface operations {
             };
         };
     };
+    capture_devices_api_v1_captures__cid__devices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Device"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     capture_events_api_v1_captures__cid__events_get: {
         parameters: {
             query?: {
@@ -3304,6 +3448,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    capture_origin_api_v1_captures__cid__origin_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
                 };
             };
             /** @description Validation Error */

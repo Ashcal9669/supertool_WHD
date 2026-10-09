@@ -1,0 +1,545 @@
+{
+    "report_id": "dx-5ff74cc4",
+    "generated_at": 1791570404.727561,
+    "whd_version": "0.1.0",
+    "scope": {
+        "device_ids": [
+            "pci:0000:07:00.0:14c3:7927"
+        ],
+        "window_s": null,
+        "event_count": 2089,
+        "significant_event_count": 33,
+        "sources": [
+            "journal",
+            "mt76",
+            "nl80211",
+            "poll",
+            "rtnl",
+            "tracefs",
+            "uevent"
+        ],
+        "first_ns": 7091190524955,
+        "last_ns": 7124392516546,
+        "demo": true,
+        "capture_id": "cap-f7ba86d4b8",
+        "imported": false,
+        "unattributed_events": 8
+    },
+    "cause_confirmed": false,
+    "disclaimer": "This report lists observations and unconfirmed hypotheses derived from captured evidence. WHD does not assert a root cause. Hypotheses are starting points for the listed follow-up tests.",
+    "observations": [
+        {
+            "id": "O1",
+            "kind": "count",
+            "text": "2089 events analyzed, 33 significant (severity \u2265 warning or state-changing kinds), 10 at warning or above; 1 incident(s) (events within 8s of each other).",
+            "evidence_event_ids": [],
+            "device_id": null
+        },
+        {
+            "id": "O2",
+            "kind": "coverage",
+            "text": "8 event(s) carry no device attribution (e.g. kernel printk lines without a device prefix); they are included in time-based incident clustering but not assigned to a device.",
+            "evidence_event_ids": [],
+            "device_id": null
+        },
+        {
+            "id": "O3",
+            "kind": "first_last",
+            "text": "'pci.aer.counter.correctable': 2x (warning+), first +15.1s, last +24.3s.",
+            "evidence_event_ids": [
+                988,
+                1578
+            ],
+            "device_id": null
+        },
+        {
+            "id": "O4",
+            "kind": "first_last",
+            "text": "'pci.link.changed': 2x (warning+), first +24.3s, last +24.7s.",
+            "evidence_event_ids": [
+                1579,
+                1581
+            ],
+            "device_id": null
+        },
+        {
+            "id": "O5",
+            "kind": "first_last",
+            "text": "'pci.aer.received': 1x (warning+), first +15.2s, last +15.2s.",
+            "evidence_event_ids": [
+                994
+            ],
+            "device_id": null
+        },
+        {
+            "id": "O6",
+            "kind": "first_last",
+            "text": "'firmware.mcu_retry': 1x (warning+), first +23.0s, last +23.0s.",
+            "evidence_event_ids": [
+                1569
+            ],
+            "device_id": null
+        },
+        {
+            "id": "O7",
+            "kind": "first_last",
+            "text": "'firmware.mcu_timeout': 1x (warning+), first +24.0s, last +24.0s.",
+            "evidence_event_ids": [
+                1571
+            ],
+            "device_id": null
+        },
+        {
+            "id": "O8",
+            "kind": "first_last",
+            "text": "'reset.chip_reset': 1x (warning+), first +24.0s, last +24.0s.",
+            "evidence_event_ids": [
+                1573
+            ],
+            "device_id": null
+        },
+        {
+            "id": "O9",
+            "kind": "first_last",
+            "text": "'nl80211.disconnect': 1x (warning+), first +24.1s, last +24.1s.",
+            "evidence_event_ids": [
+                1575
+            ],
+            "device_id": null
+        },
+        {
+            "id": "O10",
+            "kind": "first_last",
+            "text": "'netdev.state': 1x (warning+), first +24.1s, last +24.1s.",
+            "evidence_event_ids": [
+                1577
+            ],
+            "device_id": null
+        },
+        {
+            "id": "O11",
+            "kind": "state",
+            "text": "pci:0000:07:00.0:14c3:7927: PCIe link 8.0 GT/s PCIe x1 (maximum 8.0 GT/s PCIe x1); at maximum.",
+            "evidence_event_ids": [],
+            "device_id": "pci:0000:07:00.0:14c3:7927"
+        },
+        {
+            "id": "O12",
+            "kind": "state",
+            "text": "pci:0000:07:00.0:14c3:7927: ASPM L0s off, L1 off (decoded from Link Control).",
+            "evidence_event_ids": [],
+            "device_id": "pci:0000:07:00.0:14c3:7927"
+        },
+        {
+            "id": "O13",
+            "kind": "state",
+            "text": "pci:0000:07:00.0:14c3:7927: driver mt7925e_git (module mt7925e_git), firmware ____000000-20260414134255, out-of-tree module (taint O).",
+            "evidence_event_ids": [],
+            "device_id": "pci:0000:07:00.0:14c3:7927"
+        },
+        {
+            "id": "O14",
+            "kind": "timing",
+            "text": "Incident I1 (error, 11.7s, 33 events): first significant event per layer in observed order: bus@+0s \u2192 firmware@+7.833s \u2192 mac80211@+8.967s \u2192 netdev@+9s.",
+            "evidence_event_ids": [
+                429,
+                432,
+                434,
+                435,
+                438,
+                440
+            ],
+            "device_id": null
+        },
+        {
+            "id": "O15",
+            "kind": "timing",
+            "text": "MCU timeout ('firmware.mcu_timeout') at +24.0s followed by 'reset.chip_reset' 0.03s later after 1 retry message(s).",
+            "evidence_event_ids": [
+                1569,
+                1571,
+                1573
+            ],
+            "device_id": null
+        },
+        {
+            "id": "O16",
+            "kind": "timing",
+            "text": "Bus-level event(s) preceded the MCU timeout in the same incident: pci.aer.received \u2014 the bus may be the initiator rather than the firmware.",
+            "evidence_event_ids": [
+                994
+            ],
+            "device_id": null
+        }
+    ],
+    "incidents": [
+        {
+            "id": "I1",
+            "device_ids": [
+                "pci:0000:07:00.0:14c3:7927"
+            ],
+            "start_ns": 7106323849880,
+            "end_ns": 7118023849880,
+            "duration_s": 11.7,
+            "severity": "error",
+            "event_count": 33,
+            "layers": [
+                "bus",
+                "firmware",
+                "mac80211",
+                "netdev"
+            ],
+            "sequence": [
+                {
+                    "id": 988,
+                    "ts_boottime_ns": 7106323849880,
+                    "rel_s": 0.0,
+                    "layer": "bus",
+                    "severity": "warning",
+                    "kind": "pci.aer.counter.correctable",
+                    "summary": "AER correctable counters increased: BadTLP+2, TOTAL_ERR_COR+2"
+                },
+                {
+                    "id": 1569,
+                    "ts_boottime_ns": 7114157183213,
+                    "rel_s": 7.833,
+                    "layer": "firmware",
+                    "severity": "warning",
+                    "kind": "firmware.mcu_retry",
+                    "summary": "Retry message 00020027 (seq 12)"
+                },
+                {
+                    "id": 1575,
+                    "ts_boottime_ns": 7115290516546,
+                    "rel_s": 8.967,
+                    "layer": "mac80211",
+                    "severity": "warning",
+                    "kind": "nl80211.disconnect",
+                    "summary": "disconnect ifindex 12 reason=DEAUTH_LEAVING"
+                },
+                {
+                    "id": 1577,
+                    "ts_boottime_ns": 7115323849880,
+                    "rel_s": 9.0,
+                    "layer": "netdev",
+                    "severity": "warning",
+                    "kind": "netdev.state",
+                    "summary": "wlp7s0 operstate DOWN admin up running"
+                }
+            ],
+            "earliest_layers": [
+                "bus"
+            ],
+            "kinds": {
+                "uevent.pci.bind": 1,
+                "firmware.patch_load": 2,
+                "firmware.init_done": 2,
+                "netdev.state": 4,
+                "assoc.authenticate": 2,
+                "assoc.authenticated": 2,
+                "assoc.associated": 2,
+                "nl80211.connect": 2,
+                "nl80211.port_authorized": 2,
+                "mt76.mlo_active_links_changed": 5,
+                "pci.aer.counter.correctable": 2,
+                "pci.aer.received": 1,
+                "firmware.mcu_retry": 1,
+                "firmware.mcu_timeout": 1,
+                "reset.chip_reset": 1,
+                "nl80211.disconnect": 1,
+                "pci.link.changed": 2
+            }
+        }
+    ],
+    "patterns": [],
+    "correlations": [
+        {
+            "id": "C1",
+            "a_kind": "firmware.mcu_retry",
+            "b_kind": "firmware.mcu_timeout",
+            "a_layer": "firmware",
+            "b_layer": "firmware",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 1.0,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'firmware.mcu_retry' was observed first and 'firmware.mcu_timeout' followed within 6s (median lag 1.00s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C2",
+            "a_kind": "firmware.mcu_retry",
+            "b_kind": "netdev.state",
+            "a_layer": "firmware",
+            "b_layer": "netdev",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 1.167,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'firmware.mcu_retry' was observed first and 'netdev.state' followed within 6s (median lag 1.17s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C3",
+            "a_kind": "firmware.mcu_retry",
+            "b_kind": "nl80211.disconnect",
+            "a_layer": "firmware",
+            "b_layer": "mac80211",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 1.133,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'firmware.mcu_retry' was observed first and 'nl80211.disconnect' followed within 6s (median lag 1.13s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C4",
+            "a_kind": "firmware.mcu_retry",
+            "b_kind": "pci.link.changed",
+            "a_layer": "firmware",
+            "b_layer": "bus",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 1.333,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'firmware.mcu_retry' was observed first and 'pci.link.changed' followed within 6s (median lag 1.33s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C5",
+            "a_kind": "firmware.mcu_retry",
+            "b_kind": "reset.chip_reset",
+            "a_layer": "firmware",
+            "b_layer": "firmware",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 1.033,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'firmware.mcu_retry' was observed first and 'reset.chip_reset' followed within 6s (median lag 1.03s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C6",
+            "a_kind": "firmware.mcu_timeout",
+            "b_kind": "netdev.state",
+            "a_layer": "firmware",
+            "b_layer": "netdev",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 0.167,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'firmware.mcu_timeout' was observed first and 'netdev.state' followed within 6s (median lag 0.17s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C7",
+            "a_kind": "firmware.mcu_timeout",
+            "b_kind": "nl80211.disconnect",
+            "a_layer": "firmware",
+            "b_layer": "mac80211",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 0.133,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'firmware.mcu_timeout' was observed first and 'nl80211.disconnect' followed within 6s (median lag 0.13s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C8",
+            "a_kind": "firmware.mcu_timeout",
+            "b_kind": "pci.link.changed",
+            "a_layer": "firmware",
+            "b_layer": "bus",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 0.333,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'firmware.mcu_timeout' was observed first and 'pci.link.changed' followed within 6s (median lag 0.33s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C9",
+            "a_kind": "firmware.mcu_timeout",
+            "b_kind": "reset.chip_reset",
+            "a_layer": "firmware",
+            "b_layer": "firmware",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 0.033,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'firmware.mcu_timeout' was observed first and 'reset.chip_reset' followed within 6s (median lag 0.03s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C10",
+            "a_kind": "netdev.state",
+            "b_kind": "pci.link.changed",
+            "a_layer": "netdev",
+            "b_layer": "bus",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 0.167,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'netdev.state' was observed first and 'pci.link.changed' followed within 6s (median lag 0.17s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C11",
+            "a_kind": "nl80211.disconnect",
+            "b_kind": "netdev.state",
+            "a_layer": "mac80211",
+            "b_layer": "netdev",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 0.033,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'nl80211.disconnect' was observed first and 'netdev.state' followed within 6s (median lag 0.03s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C12",
+            "a_kind": "nl80211.disconnect",
+            "b_kind": "pci.link.changed",
+            "a_layer": "mac80211",
+            "b_layer": "bus",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 0.2,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'nl80211.disconnect' was observed first and 'pci.link.changed' followed within 6s (median lag 0.20s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C13",
+            "a_kind": "pci.aer.counter.correctable",
+            "b_kind": "pci.aer.received",
+            "a_layer": "bus",
+            "b_layer": "bus",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 0.033,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'pci.aer.counter.correctable' was observed first and 'pci.aer.received' followed within 6s (median lag 0.03s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C14",
+            "a_kind": "reset.chip_reset",
+            "b_kind": "netdev.state",
+            "a_layer": "firmware",
+            "b_layer": "netdev",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 0.133,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'reset.chip_reset' was observed first and 'netdev.state' followed within 6s (median lag 0.13s). Single occurrence: no repeatability evidence."
+        },
+        {
+            "id": "C15",
+            "a_kind": "reset.chip_reset",
+            "b_kind": "nl80211.disconnect",
+            "a_layer": "firmware",
+            "b_layer": "mac80211",
+            "incidents_with_both": 1,
+            "incidents_a_before_b": 1,
+            "median_lag_s": 0.1,
+            "max_window_s": 6.0,
+            "note": "In 1 of 1 incident(s) 'reset.chip_reset' was observed first and 'nl80211.disconnect' followed within 6s (median lag 0.10s). Single occurrence: no repeatability evidence."
+        }
+    ],
+    "hypotheses": [
+        {
+            "id": "H-fw-unresponsive",
+            "title": "MCU/firmware stopped answering host commands",
+            "statement": "In 1 incident(s) an MCU command timed out and the driver then reset the chip. This is consistent with the firmware (or the host\u2194firmware command path) becoming unresponsive. The evidence places the boundary at the host driver \u2194 MCU command channel, not at the radio or the network.",
+            "status": "unconfirmed",
+            "confidence": "low",
+            "failure_boundary": "host driver \u2194 MCU/firmware command channel",
+            "supporting": [
+                "O15"
+            ],
+            "supporting_event_ids": [
+                1569,
+                1571,
+                1573
+            ],
+            "contradicting": [
+                "O16"
+            ],
+            "unknowns": [
+                "Whether the firmware crashed, hung on one command, or the DMA/interrupt path stalled: all produce the same log lines.",
+                "Why the command was sent at that moment (what triggered it).",
+                "Whether a bus fault happened without being logged (corrected AER is rate-limited/not logged)."
+            ],
+            "missing_instrumentation": [
+                "M-reset-stages"
+            ],
+            "follow_up_ids": [
+                "F-mcu-trace",
+                "F-aer",
+                "F-repeat"
+            ]
+        }
+    ],
+    "missing_instrumentation": [
+        {
+            "id": "M-reset-stages",
+            "what": "Reset/recovery stage tracepoints",
+            "why_it_matters": "Recovery duration and the stage that failed are only inferable from log text.",
+            "proposal": "Proposal only (no diff): mt792x:reset_stage tracepoints around the recovery sequence."
+        },
+        {
+            "id": "M-attribution",
+            "what": "Device attribution for custom driver printk lines",
+            "why_it_matters": "8 event(s) cannot be tied to a specific adapter; with several adapters, per-device analysis misses them.",
+            "proposal": "Use dev_info()/dev_dbg() (device-prefixed) for driver debug lines; WHD attributes by prefix."
+        },
+        {
+            "id": "M-cov-mcu_lifecycle",
+            "what": "MCU command lifecycle: partial on this kernel",
+            "why_it_matters": "See the mt76 instrumentation coverage report for the exact missing interfaces.",
+            "proposal": null
+        },
+        {
+            "id": "M-cov-tid_to_link",
+            "what": "TID-to-link mapping: partial on this kernel",
+            "why_it_matters": "See the mt76 instrumentation coverage report for the exact missing interfaces.",
+            "proposal": null
+        },
+        {
+            "id": "M-cov-fw_timeouts_recovery",
+            "what": "Firmware recovery stages: log_only on this kernel",
+            "why_it_matters": "See the mt76 instrumentation coverage report for the exact missing interfaces.",
+            "proposal": null
+        }
+    ],
+    "follow_ups": [
+        {
+            "id": "F-mcu-trace",
+            "title": "Capture MCU command lifecycle around the failure",
+            "how": "Apply the optional mt76 tracepoint patch (docs/patches/0001) to a build you control, then run a WHD capture with trace events mt76/mcu_send,mcu_resp. Shows which command stalled and prior latencies.",
+            "distinguishes": [
+                "H-fw-unresponsive"
+            ],
+            "safety": "needs-user-action",
+            "whd_feature": "mt76 tab \u2192 Instrumentation coverage \u2192 patch proposals"
+        },
+        {
+            "id": "F-aer",
+            "title": "Compare PCIe AER counters and status before/after an incident",
+            "how": "Device \u2192 Bus tab shows AER counters (sysfs) and, with the helper, decoded AER registers. Note whether uncorrectable status bits or fatal counters change at the failure instant.",
+            "distinguishes": [
+                "H-bus-precedes",
+                "H-fw-unresponsive",
+                "H-pcie-degraded"
+            ],
+            "safety": "read-only",
+            "whd_feature": "Device \u2192 Bus"
+        },
+        {
+            "id": "F-repeat",
+            "title": "Repeat the capture under the same workload",
+            "how": "Run another capture of equal length with the same traffic. Compare incident count and interval (Diagnostics \u2192 patterns). Repeatability separates a systematic fault from a one-off.",
+            "distinguishes": [
+                "H-fw-unresponsive",
+                "H-bus-precedes",
+                "H-usb-instability",
+                "H-ap-initiated"
+            ],
+            "safety": "read-only",
+            "whd_feature": "Captures"
+        }
+    ],
+    "limits": [
+        "Timestamps come from different clocks: kernel printk (\u00b5s, converted with the current CLOCK_BOOTTIME offset; off by any suspend time), tracefs boot clock (ns), and WHD receive time for netlink/uevent events. Events from sysfs polling are accurate only to the polling interval (2 s).",
+        "Only events WHD received are analyzed; WHD has no kernel history from before it started except the journal backfill, and journald/ratelimit can drop messages.",
+        "Hypotheses use fixed, documented rules; absence of a hypothesis does not mean absence of a problem."
+    ]
+}

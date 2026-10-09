@@ -1,4 +1,3 @@
-import { AnimatePresence, motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import type { WhdEvent } from "../api/types";
 import { bootSec, wallTime } from "../lib/format";
@@ -42,7 +41,7 @@ export function EventDetail({ e }: { e: WhdEvent }) {
   );
 }
 
-export function EventTable({ events, showDevice = true, max = 1000 }: { events: WhdEvent[]; showDevice?: boolean; max?: number }) {
+export function EventTable({ events, showDevice = true, max = 400 }: { events: WhdEvent[]; showDevice?: boolean; max?: number }) {
   const [open, setOpen] = useState<number | null>(null);
   const rows = useMemo(() => events.slice(-max).reverse(), [events, max]);
   return (
@@ -52,28 +51,26 @@ export function EventTable({ events, showDevice = true, max = 1000 }: { events: 
           <tr><th className="px-2 py-1">time</th><th>sev</th><th>category</th><th>kind</th>{showDevice && <th>device</th>}<th>summary</th></tr>
         </thead>
         <tbody>
-          <AnimatePresence initial={false}>
-            {rows.map((e) => (
-              <motion.tr key={`${e.id}-${e.ts_boottime_ns}`} layout="position" initial={{ opacity: 0, backgroundColor: "#22d3ee22" }}
-                animate={{ opacity: 1, backgroundColor: "#00000000" }} transition={{ duration: 0.6 }}
-                className="cursor-pointer border-b border-line/40 align-top hover:bg-panel2"
-                onClick={() => setOpen(open === e.id ? null : (e.id ?? null))}>
-                <td className="mono whitespace-nowrap px-2 py-0.5 text-dim" title={`boottime ${bootSec(e.ts_boottime_ns)}s (${e.ts_source})`}>{wallTime(e.ts_wall)}</td>
-                <td><SevBadge s={e.severity} /></td>
-                <td className="whitespace-nowrap">{e.category}</td>
-                <td className="mono whitespace-nowrap text-[11px] text-dim">{e.kind}</td>
-                {showDevice && <td className="mono max-w-40 truncate text-[11px]" title={e.device_id ?? ""}>{e.device_id ? e.device_id.split(":").slice(0, 3).join(":") : "—"}</td>}
-                <td className="w-full">
-                  <span className="break-all">{e.summary}</span>
-                  {e.demo && <span className="ml-1"><Badge tone="demo">demo</Badge></span>}
-                  {e.session?.startsWith("replay:") && <span className="ml-1"><Badge tone="accent">replay</Badge></span>}
-                  {open === e.id && <div className="mt-1" onClick={(x) => x.stopPropagation()}><EventDetail e={e} /></div>}
-                </td>
-              </motion.tr>
-            ))}
-          </AnimatePresence>
+          {rows.map((e) => (
+            <tr key={`${e.id}-${e.ts_boottime_ns}`} className="whd-flash cursor-pointer border-b border-line/40 align-top hover:bg-panel2"
+              onClick={() => setOpen(open === e.id ? null : (e.id ?? null))}>
+              <td className="mono whitespace-nowrap px-2 py-0.5 text-dim" title={`boottime ${bootSec(e.ts_boottime_ns)}s (${e.ts_source})`}>{wallTime(e.ts_wall)}</td>
+              <td><SevBadge s={e.severity} /></td>
+              <td className="whitespace-nowrap">{e.category}</td>
+              <td className="mono whitespace-nowrap text-[11px] text-dim">{e.kind}</td>
+              {showDevice && <td className="mono max-w-40 truncate text-[11px]" title={e.device_id ?? ""}>{e.device_id ? e.device_id.split(":").slice(0, 3).join(":") : "—"}</td>}
+              <td className="w-full">
+                <span className="break-all">{e.summary}</span>
+                {e.demo && <span className="ml-1"><Badge tone="demo">demo</Badge></span>}
+                {e.session?.startsWith("replay:") && <span className="ml-1"><Badge tone="accent">replay</Badge></span>}
+                {e.session?.startsWith("import:") && <span className="ml-1"><Badge tone="accent">imported</Badge></span>}
+                {open === e.id && <div className="mt-1" onClick={(x) => x.stopPropagation()}><EventDetail e={e} /></div>}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
+      {events.length > max && <p className="p-2 text-[11px] text-dim">Showing the newest {max} of {events.length} events in memory; narrow the filters or export a capture for the rest.</p>}
     </div>
   );
 }
@@ -83,7 +80,10 @@ export function Swimlanes({ events, nowNs, windowS, onPick }: {
   events: WhdEvent[]; nowNs: number; windowS: number; onPick?: (e: WhdEvent) => void;
 }) {
   const start = nowNs - windowS * 1e9;
-  const visible = events.filter((e) => e.ts_boottime_ns >= start && e.ts_boottime_ns <= nowNs + 5e9);
+  const MAX_DOTS = 1500;
+  const all = events.filter((e) => e.ts_boottime_ns >= start && e.ts_boottime_ns <= nowNs + 5e9);
+  // keep every notable event; thin out debug/info noise first when over the cap
+  const visible = all.length <= MAX_DOTS ? all : [...all.filter((e) => e.severity !== "debug" && e.severity !== "info"), ...all.filter((e) => e.severity === "debug" || e.severity === "info")].slice(0, MAX_DOTS);
   const lanes = CATEGORIES.filter((c) => visible.some((e) => e.category === c));
   const W = 1000;
   const laneH = 22;
@@ -96,10 +96,10 @@ export function Swimlanes({ events, nowNs, windowS, onPick }: {
           <text x={0} y={14} fill="#7b8aa8" fontSize={10}>{c}</text>
           <line x1={110} x2={110 + W} y1={laneH - 2} y2={laneH - 2} stroke="#1e2a44" />
           {visible.filter((e) => e.category === c).map((e) => (
-            <motion.circle key={`${e.id}-${e.ts_boottime_ns}`} cx={110 + x(e.ts_boottime_ns)} cy={10} initial={{ r: 9, opacity: 0.2 }} animate={{ r: e.severity === "debug" ? 2 : 3.5, opacity: 1 }}
-              transition={{ duration: 0.5 }} fill={SEV_COLOR[e.severity]} onClick={() => onPick?.(e)} style={{ cursor: "pointer" }}>
+            <circle key={`${e.id}-${e.ts_boottime_ns}`} cx={110 + x(e.ts_boottime_ns)} cy={10} r={e.severity === "debug" ? 2 : 3.5}
+              fill={SEV_COLOR[e.severity]} onClick={() => onPick?.(e)} style={{ cursor: "pointer" }}>
               <title>{`${wallTime(e.ts_wall)} ${e.kind}: ${e.summary}`}</title>
-            </motion.circle>
+            </circle>
           ))}
         </g>
       ))}
@@ -107,6 +107,7 @@ export function Swimlanes({ events, nowNs, windowS, onPick }: {
         <text key={f} x={110 + f * W} y={H - 4} fill="#475569" fontSize={9} textAnchor="middle">-{Math.round((1 - f) * windowS)}s</text>
       ))}
       {lanes.length === 0 && <text x={110} y={14} fill="#475569" fontSize={11}>no events in window</text>}
+      {all.length > MAX_DOTS && <text x={W + 105} y={H - 4} fill="#fbbf24" fontSize={9} textAnchor="end">showing {MAX_DOTS} of {all.length}</text>}
     </svg>
   );
 }

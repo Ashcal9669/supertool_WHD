@@ -335,18 +335,6 @@
    "b64": null,
    "read_at_boottime_ns": 112032645929370
   },
-  "debugfs_read:{\"path\": \"mt76/eeprom\", \"phy\": \"phy1\"}": {
-   "phy": "phy1",
-   "path": "mt76/eeprom",
-   "tier": "passive",
-   "policy": "EEPROM blob cached in memory",
-   "bytes": 0,
-   "truncated": false,
-   "elapsed_ms": 0.009056995622813702,
-   "text": "",
-   "b64": null,
-   "read_at_boottime_ns": 112032646313766
-  },
   "debugfs_read:{\"path\": \"mt76/fw_debug\", \"phy\": \"phy1\"}": {
    "phy": "phy1",
    "path": "mt76/fw_debug",

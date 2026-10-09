@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from pydantic import Field
 
 from whd import __version__
+from whd.capture.importer import Imported, finalize
 from whd.clock import boottime_ns
 from whd.model.common import Model
 from whd.model.events import Event, EventFilter, Severity, TelemetrySample
@@ -41,7 +42,7 @@ HARD_MAX_TELEMETRY = 100_000
 MAX_CONCURRENT = 3
 FLUSH_EVERY_S = 1.0
 
-State = Literal["running", "stopped", "expired", "error"]
+State = Literal["running", "stopped", "expired", "error", "imported"]
 
 
 class CaptureConfig(Model):
@@ -432,6 +433,79 @@ class CaptureManager:
             return []
         return [TelemetrySample.model_validate_json(x) for x in art[1].decode().splitlines() if x.strip()]
 
+    # ----------------------------------------------------------- import
+    async def import_capture(self, imp: Imported, name: str) -> CaptureInfo:
+        """Store an uploaded capture. It lives only in the capture tables: never in the live event store/ring."""
+        cid = "imp-" + secrets.token_hex(5)
+        imp = finalize(imp, cid)
+        stats = CaptureStats(
+            events_seen=len(imp.events),
+            events_kept=len(imp.events),
+            telemetry_samples=len(imp.telemetry),
+            first_ts_ns=imp.events[0].ts_boottime_ns,
+            last_ts_ns=imp.events[-1].ts_boottime_ns,
+            stop_reason=f"imported from {imp.origin.get('filename', 'upload')} ({imp.format})",
+        )
+        for e in imp.events:
+            stats.bytes_kept += len(e.model_dump_json())
+            stats.by_severity[e.severity] = stats.by_severity.get(e.severity, 0) + 1
+            stats.by_category[e.category] = stats.by_category.get(e.category, 0) + 1
+        store = self.st.store
+        cfg = CaptureConfig(name=(name or str(imp.origin.get("capture_name") or "imported"))[:80])
+        await asyncio.to_thread(
+            store.capture_upsert,
+            {
+                "id": cid,
+                "name": cfg.name,
+                "state": "imported",
+                "created_at": time.time(),
+                "started_ns": stats.first_ts_ns,
+                "stopped_ns": stats.last_ts_ns,
+                "config_json": cfg.model_dump_json(),
+                "stats_json": stats.model_dump_json(),
+                "mode": "imported",
+            },
+        )
+        for i in range(0, len(imp.events), 5000):
+            await asyncio.to_thread(store.capture_add_events, cid, i + 1, imp.events[i : i + 5000])
+        origin = imp.origin | {
+            "format": imp.format,
+            "warnings": imp.warnings,
+            "skipped_lines": imp.skipped_lines,
+            "imported_at": time.time(),
+            "all_events_demo": all(e.demo for e in imp.events),
+        }
+        arts: dict[str, tuple[str, bytes]] = {
+            "origin.json": ("application/json", json.dumps(origin, default=str, indent=1).encode()),
+            "devices_start.json": (
+                "application/json",
+                json.dumps({"devices": imp.devices}, default=str).encode(),
+            ),
+            "coverage.json": ("application/json", json.dumps(imp.coverage).encode()),
+        }
+        if imp.telemetry:
+            arts["telemetry.jsonl"] = (
+                "application/x-ndjson",
+                "\n".join(t.model_dump_json() for t in imp.telemetry).encode(),
+            )
+        for n, (ct, data) in arts.items():
+            await asyncio.to_thread(store.capture_put_artifact, cid, n, ct, data)
+        store.audit(
+            "api",
+            "capture_import",
+            {"id": cid, "format": imp.format, "events": len(imp.events), "file": imp.origin.get("filename")},
+        )
+        return await self.info(cid)
+
+    async def artifact_json(self, cid: str, name: str) -> Any:
+        art = await asyncio.to_thread(self.st.store.capture_artifact, cid, name)
+        if not art:
+            return None
+        try:
+            return json.loads(art[1])
+        except json.JSONDecodeError:
+            return None
+
     # ----------------------------------------------------------- export / bundle
     async def export(self, cid: str, fmt: str) -> tuple[str, bytes, str]:
         """Returns (content_type, data, filename)."""
@@ -475,7 +549,8 @@ class CaptureManager:
             art = await asyncio.to_thread(self.st.store.capture_artifact, cid, name)
             if art:
                 files[name] = R(art[1].decode()).encode()
-        snap = self.st.inventory.snapshot
+        imported = info.mode == "imported"
+        snap = None if imported else self.st.inventory.snapshot
         if snap:
             files["inventory_now.json"] = R(
                 json.dumps(
@@ -492,24 +567,29 @@ class CaptureManager:
                     indent=1,
                 )
             ).encode()
-        from whd.services.system import system_info
+        if imported:
+            origin = await asyncio.to_thread(self.st.store.capture_artifact, cid, "origin.json")
+            if origin:
+                files["origin.json"] = R(origin[1].decode()).encode()
+        if not imported:  # host-specific facts describe THIS machine, not the capture's origin
+            from whd.services.system import system_info
 
-        helper_status: dict[str, Any] = (
-            await self.st.helper.status() if self.st.helper else {"connected": False}
-        )
-        sysinfo = await asyncio.to_thread(
-            system_info, self.st.host, self.st.settings.demo_scenario, helper_status
-        )
-        files["system.json"] = R(sysinfo.model_dump_json(indent=1)).encode()
-        files["sources.json"] = json.dumps(
-            self.st.events.status() if self.st.events else [], indent=1
-        ).encode()
-        files["audit.json"] = json.dumps(
-            await asyncio.to_thread(self.st.store.audit_log, 100), indent=1, default=str
-        ).encode()
+            helper_status: dict[str, Any] = (
+                await self.st.helper.status() if self.st.helper else {"connected": False}
+            )
+            sysinfo = await asyncio.to_thread(
+                system_info, self.st.host, self.st.settings.demo_scenario, helper_status
+            )
+            files["system.json"] = R(sysinfo.model_dump_json(indent=1)).encode()
+            files["sources.json"] = json.dumps(
+                self.st.events.status() if self.st.events else [], indent=1
+            ).encode()
+            files["audit.json"] = json.dumps(
+                await asyncio.to_thread(self.st.store.audit_log, 100), indent=1, default=str
+            ).encode()
         for k, v in (extra or {}).items():
             files[k] = R(v.decode()).encode() if red else v
-        demo = self.st.settings.mode == "demo"
+        demo = info.mode == "demo" or (not imported and self.st.settings.mode == "demo")
         files["README.txt"] = (
             "WHD diagnostic bundle\n=====================\n"
             f"capture: {info.id} ({info.name})  state: {info.state}\n"
@@ -519,11 +599,18 @@ class CaptureManager:
                 if demo
                 else ""
             )
+            + (
+                "*** IMPORTED capture: recorded on another machine or session; see origin.json ***\n"
+                if imported
+                else ""
+            )
             + f"MAC addresses {'were masked consistently (OUI kept)' if redact else 'are NOT masked'}.\n"
             "Timestamps: ts_boottime_ns = CLOCK_BOOTTIME ns (canonical); ts_wall is derived for display.\n"
             "Nothing in this bundle contains the WHD access token, session keys, or wireless key material.\n"
             "Files: events.jsonl/csv (captured events), trace.txt (raw tracefs lines if a trace ran), telemetry.jsonl, "
-            "devices_*.json (inventory at start/end), system.json, sources.json, audit.json, manifest.json\n"
+            "devices_*.json (inventory at start/end), "
+            + ("origin.json" if imported else "system.json, sources.json, audit.json")
+            + ", manifest.json\n"
         ).encode()
         manifest = {
             "whd_version": __version__,

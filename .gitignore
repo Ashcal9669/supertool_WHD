@@ -16,3 +16,5 @@ frontend/e2e-results/
 cold-reboot-recovery-*/
 frontend/tsconfig.tsbuildinfo
 frontend/*.tsbuildinfo
+.DS_Store
+._*

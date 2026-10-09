@@ -103,7 +103,7 @@ async def test_export_formats_and_bundle(ctx) -> None:  # type: ignore[no-untype
     c, st = ctx
     cid = (await c.post("/api/v1/captures", json={"name": "ex"})).json()["id"]
     st.bus.publish(
-        ev(1, "error", msg="wlp7s0: deauthenticated from 8c:ed:e1:98:cc:18 (Reason: 3=DEAUTH_LEAVING)")
+        ev(1, "error", msg="wlp7s0: deauthenticated from 02:ee:aa:11:22:33 (Reason: 3=DEAUTH_LEAVING)")
     )
     tr = make_event(
         ts=20_000,
@@ -144,7 +144,7 @@ async def test_export_formats_and_bundle(ctx) -> None:  # type: ignore[no-untype
     man = json.loads(z.read("manifest.json"))
     assert man["demo"] is True and man["redacted_macs"] is True
     ev_text = z.read("events.jsonl").decode()
-    assert "8c:ed:e1:98:cc:18" not in ev_text and "8c:ed:e1:xx:xx:01" in ev_text  # masked, OUI kept
+    assert "02:ee:aa:11:22:33" not in ev_text and "02:ee:aa:xx:xx:01" in ev_text  # masked, OUI kept
     assert "DEMO MODE" in z.read("README.txt").decode()
     from whd.capture.manager import hashlib as _h  # noqa: F401
 
@@ -154,7 +154,7 @@ async def test_export_formats_and_bundle(ctx) -> None:  # type: ignore[no-untype
         assert hashlib.sha256(z.read(n)).hexdigest() == meta["sha256"], n
     assert st.auth.token.encode() not in b"".join(z.read(n) for n in z.namelist())
     raw = (await c.get(f"/api/v1/captures/{cid}/bundle?redact_macs=false")).content
-    assert b"8c:ed:e1:98:cc:18" in zipfile.ZipFile(io.BytesIO(raw)).read("events.jsonl")
+    assert b"02:ee:aa:11:22:33" in zipfile.ZipFile(io.BytesIO(raw)).read("events.jsonl")
 
 
 async def test_replay_is_not_persisted_and_does_not_enter_ring(ctx) -> None:  # type: ignore[no-untyped-def]

@@ -121,6 +121,7 @@ class Scope(Model):
     last_ns: int | None
     demo: bool
     capture_id: str | None = None
+    imported: bool = False
     unattributed_events: int = 0
 
 

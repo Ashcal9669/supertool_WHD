@@ -537,7 +537,8 @@
        "running",
        "stopped",
        "expired",
-       "error"
+       "error",
+       "imported"
       ],
       "title": "State",
       "type": "string"
@@ -1901,6 +1902,7 @@
        "poll_boottime",
        "netlink_boottime",
        "usbmon_monotonic",
+       "imported_wall_clock",
        "recorded"
       ],
       "title": "Ts Source",
@@ -2319,6 +2321,52 @@
      "follow_up_ids"
     ],
     "title": "Hypothesis",
+    "type": "object"
+   },
+   "ImportResult": {
+    "properties": {
+     "capture": {
+      "$ref": "#/components/schemas/CaptureInfo"
+     },
+     "devices_in_snapshot": {
+      "title": "Devices In Snapshot",
+      "type": "integer"
+     },
+     "format": {
+      "title": "Format",
+      "type": "string"
+     },
+     "origin": {
+      "additionalProperties": true,
+      "title": "Origin",
+      "type": "object"
+     },
+     "skipped_lines": {
+      "title": "Skipped Lines",
+      "type": "integer"
+     },
+     "telemetry_samples": {
+      "title": "Telemetry Samples",
+      "type": "integer"
+     },
+     "warnings": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Warnings",
+      "type": "array"
+     }
+    },
+    "required": [
+     "capture",
+     "format",
+     "warnings",
+     "skipped_lines",
+     "devices_in_snapshot",
+     "telemetry_samples",
+     "origin"
+    ],
+    "title": "ImportResult",
     "type": "object"
    },
    "Incident": {
@@ -4990,6 +5038,11 @@
       ],
       "title": "First Ns"
      },
+     "imported": {
+      "default": false,
+      "title": "Imported",
+      "type": "boolean"
+     },
      "last_ns": {
       "anyOf": [
        {
@@ -5039,6 +5092,7 @@
      "last_ns",
      "demo",
      "capture_id",
+     "imported",
      "unattributed_events"
     ],
     "title": "Scope",
@@ -7778,6 +7832,82 @@
     "summary": "Create Capture"
    }
   },
+  "/api/v1/captures/import": {
+   "post": {
+    "description": "Upload a capture file (raw request body, any supported format) and store it as an imported capture.",
+    "operationId": "import_capture_api_v1_captures_import_post",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "filename",
+      "required": false,
+      "schema": {
+       "default": "upload",
+       "maxLength": 200,
+       "title": "Filename",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "name",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "maxLength": 80,
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Name"
+      }
+     },
+     {
+      "in": "query",
+      "name": "group_hint",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "pattern": "^[A-Za-z0-9_\\-]{1,64}$",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Group Hint"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ImportResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Import Capture"
+   }
+  },
   "/api/v1/captures/{cid}": {
    "delete": {
     "operationId": "delete_capture_api_v1_captures__cid__delete",
@@ -7905,6 +8035,50 @@
     "summary": "Bundle"
    }
   },
+  "/api/v1/captures/{cid}/devices": {
+   "get": {
+    "description": "Device inventory snapshot stored with a capture (empty when the source had none).",
+    "operationId": "capture_devices_api_v1_captures__cid__devices_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/Device"
+         },
+         "title": "Response Capture Devices Api V1 Captures  Cid  Devices Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Capture Devices"
+   }
+  },
   "/api/v1/captures/{cid}/events": {
    "get": {
     "operationId": "capture_events_api_v1_captures__cid__events_get",
@@ -8016,6 +8190,47 @@
      }
     },
     "summary": "Export Capture"
+   }
+  },
+  "/api/v1/captures/{cid}/origin": {
+   "get": {
+    "operationId": "capture_origin_api_v1_captures__cid__origin_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Capture Origin Api V1 Captures  Cid  Origin Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Capture Origin"
    }
   },
   "/api/v1/captures/{cid}/replay": {

@@ -208,7 +208,7 @@ def pcie_story() -> Gen:
     def associate(t0: float, links_after: tuple[int, int] = (0, 3)) -> float:
         g.nl80211(t0, C.NL80211_CMD_TRIGGER_SCAN)
         g.nl80211(t0 + 1.4, C.NL80211_CMD_NEW_SCAN_RESULTS)
-        g.kernel(t0 + 1.6, f"{g.netdev}: authenticate with {PEER} (local address=84:9e:56:d5:1e:53)")
+        g.kernel(t0 + 1.6, f"{g.netdev}: authenticate with {PEER} (local address=02:00:5e:10:00:01)")
         g.kernel(t0 + 1.62, f"{g.netdev}: send auth to {PEER} (try 1/3)")
         g.kernel(t0 + 1.68, f"{g.netdev}: authenticated")
         g.kernel(t0 + 1.7, f"{g.netdev}: associate with {PEER} (try 1/3)")

@@ -109,6 +109,11 @@ class Scrubber:
             ks = ":".join(f"{x:02x}" for x in k).encode()
             vs = ":".join(f"{x:02x}" for x in v).encode()
             b = b.replace(ks, vs).replace(ks.upper(), vs)
+            # variants that differ only in the first octet (e.g. the per-interface addresses a driver derives from
+            # the permanent address) are just as identifying: mask them too, keeping their first octet
+            tail = re.escape(":".join(f"{x:02x}" for x in k[1:]).encode())
+            repl = vs.split(b":", 1)[1]
+            b = re.sub(rb"(?i)\b([0-9a-f]{2}):" + tail, rb"\1:" + repl, b)
         return self.bin(b)
 
 

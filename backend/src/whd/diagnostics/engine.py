@@ -416,6 +416,7 @@ def analyze(
     demo: bool = False,
     capture_id: str | None = None,
     device_filter: str | None = None,
+    imported: bool = False,
 ) -> DiagnosticReport:
     events = sorted(events, key=lambda e: e.ts_boottime_ns)
     sig = [e for e in events if is_significant(e)]
@@ -934,6 +935,13 @@ def analyze(
         "backfill, and journald/ratelimit can drop messages.",
         "Hypotheses use fixed, documented rules; absence of a hypothesis does not mean absence of a problem.",
     ]
+    if imported:
+        limits.append(
+            "Imported capture: timestamps are in the origin machine's clock domain and were not converted; "
+            "device inventory and instrumentation coverage are those stored with the capture (raw log "
+            "imports have none), so state-based observations and missing-instrumentation checks may be "
+            "absent. Nothing here reflects this host."
+        )
     devs = sorted({e.device_id for e in events if e.device_id})
     scope = Scope(
         device_ids=devs,
@@ -946,6 +954,7 @@ def analyze(
         demo=demo,
         capture_id=capture_id,
         unattributed_events=unattributed,
+        imported=imported,
     )
     if not events:
         obs.add("count", "No events in the analyzed scope; nothing to correlate.")

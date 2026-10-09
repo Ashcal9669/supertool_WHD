@@ -1,0 +1,19 @@
+# SYNTHETIC example for the Import feature: a kernel log "from another machine" (not measured on hardware).
+# Import it on the Captures page, then use Visualize / Diagnose.
+[    0.000000] Linux version 6.8.0-example (build@otherhost) #1 SMP PREEMPT_DYNAMIC
+[   12.345678] mt7925e 0000:07:00.0: ASIC revision: 7927
+[   12.900000] mt7925e 0000:07:00.0: HW/SW Version: 0x8a108a10, Build Time: 20260414134255
+[   13.000000] mt7925e 0000:07:00.0: Loading firmware patch: mediatek/mt7927/WIFI_MT6639_PATCH_MCU_2_1_hdr.bin
+[   13.900000] mt7925e 0000:07:00.0: Firmware init done
+[   20.000000] wlan0: authenticate with 02:00:5e:10:00:09 (local address=02:aa:bb:cc:dd:ee)
+[   20.050000] wlan0: authenticated
+[   20.100000] wlan0: associate with 02:00:5e:10:00:09 (try 1/3)
+[   20.180000] wlan0: RX AssocResp from 02:00:5e:10:00:09 (capab=0x1511 status=0 aid=3)
+[   20.200000] wlan0: associated
+[   71.000000] pcieport 0000:00:02.2: AER: Corrected error message received from 0000:07:00.0
+[  100.100000] mt7925e 0000:07:00.0: Retry message 00020027 (seq 12)
+[  103.100000] mt7925e 0000:07:00.0: Message 00020027 (seq 12) timeout
+[  103.200000] mt7925e 0000:07:00.0: chip reset
+[  103.900000] wlan0: deauthenticated from 02:00:5e:10:00:09 (Reason: 3=DEAUTH_LEAVING)
+[  108.000000] mt7925e 0000:07:00.0: Loading firmware patch: mediatek/mt7927/WIFI_MT6639_PATCH_MCU_2_1_hdr.bin
+[  109.200000] mt7925e 0000:07:00.0: Firmware init done

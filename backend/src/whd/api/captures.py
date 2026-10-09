@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from whd.api.deps import get_state, require_auth
+from whd.capture.importer import MAX_UPLOAD_BYTES, ImportError_, parse_upload
 from whd.capture.manager import CaptureConfig, CaptureInfo
+from whd.model.common import Model
+from whd.model.device import Device
 from whd.model.events import Event, TelemetrySample
 from whd.state import AppState
 
@@ -98,7 +102,10 @@ async def export_capture(
 @router.get("/captures/{cid}/bundle")
 async def bundle(cid: str, redact_macs: bool = True, actor: str = Auth, st: AppState = State) -> Response:
     try:
-        data = await _mgr(st).bundle(cid, redact=redact_macs, extra=await _extras(st))
+        info = await _mgr(st).info(cid)
+        data = await _mgr(st).bundle(
+            cid, redact=redact_macs, extra=None if info.mode == "imported" else await _extras(st)
+        )
     except KeyError:
         raise HTTPException(404, "unknown capture") from None
     st.store.audit(actor, "bundle_download", {"capture": cid, "redact_macs": redact_macs})
@@ -164,3 +171,83 @@ async def stop_replay(_: str = Auth, st: AppState = State) -> dict[str, Any]:
 @router.get("/replay/status")
 async def replay_status(_: str = Auth, st: AppState = State) -> dict[str, Any]:
     return st.events.replay_status() if st.events else {"active": False}
+
+
+# ---------------------------------------------------------------- import (upload)
+
+
+class ImportResult(Model):
+    capture: CaptureInfo
+    format: str
+    warnings: list[str]
+    skipped_lines: int
+    devices_in_snapshot: int
+    telemetry_samples: int
+    origin: dict[str, Any]
+
+
+async def _read_limited(request: Request, limit: int) -> bytes:
+    cl = request.headers.get("content-length")
+    if cl and cl.isdigit() and int(cl) > limit:
+        raise HTTPException(413, f"upload exceeds the {limit // (1024 * 1024)} MiB limit")
+    buf = bytearray()
+    async for chunk in request.stream():
+        buf += chunk
+        if len(buf) > limit:
+            raise HTTPException(413, f"upload exceeds the {limit // (1024 * 1024)} MiB limit")
+    return bytes(buf)
+
+
+@router.post("/captures/import", response_model=ImportResult)
+async def import_capture(
+    request: Request,
+    filename: str = Query("upload", max_length=200),
+    name: str | None = Query(None, max_length=80),
+    group_hint: str | None = Query(None, pattern=r"^[A-Za-z0-9_\-]{1,64}$"),
+    actor: str = Auth,
+    st: AppState = State,
+) -> ImportResult:
+    """Upload a capture file (raw request body, any supported format) and store it as an imported capture."""
+    data = await _read_limited(request, MAX_UPLOAD_BYTES)
+    try:
+        imp = await asyncio.to_thread(parse_upload, data, filename, group_hint)
+    except ImportError_ as e:
+        raise HTTPException(422, str(e)) from e
+    info = await _mgr(st).import_capture(imp, name or filename.rsplit("/", 1)[-1].rsplit(".", 1)[0])
+    st.store.audit(actor, "capture_import_upload", {"id": info.id, "bytes": len(data), "format": imp.format})
+    origin = await _mgr(st).artifact_json(info.id, "origin.json") or {}
+    return ImportResult(
+        capture=info,
+        format=imp.format,
+        warnings=origin.get("warnings", []),
+        skipped_lines=imp.skipped_lines,
+        devices_in_snapshot=len(imp.devices),
+        telemetry_samples=len(imp.telemetry),
+        origin=origin,
+    )
+
+
+@router.get("/captures/{cid}/devices", response_model=list[Device])
+async def capture_devices(cid: str, _: str = Auth, st: AppState = State) -> list[Device]:
+    """Device inventory snapshot stored with a capture (empty when the source had none)."""
+    try:
+        await _mgr(st).info(cid)
+    except KeyError:
+        raise HTTPException(404, "unknown capture") from None
+    snap = await _mgr(st).artifact_json(cid, "devices_start.json") or {}
+    out: list[Device] = []
+    for d in snap.get("devices", []):
+        try:
+            out.append(Device.model_validate(d))
+        except ValueError:
+            continue
+    return out
+
+
+@router.get("/captures/{cid}/origin")
+async def capture_origin(cid: str, _: str = Auth, st: AppState = State) -> dict[str, Any]:
+    try:
+        await _mgr(st).info(cid)
+    except KeyError:
+        raise HTTPException(404, "unknown capture") from None
+    return await _mgr(st).artifact_json(cid, "origin.json") or {}

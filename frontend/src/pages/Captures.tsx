@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { api, del, post } from "../api/client";
 import { useInventory } from "../api/hooks";
-import type { CaptureInfo, WhdEvent } from "../api/types";
+import type { CaptureInfo, ImportResult, WhdEvent } from "../api/types";
 import { CATEGORIES, EventTable, SEVERITIES } from "../components/events";
 import { Badge, Button, Empty, ErrorBox, KV, Loading, Panel } from "../components/ui";
 import { bootSec, bytes } from "../lib/format";
@@ -55,6 +56,55 @@ function Create() {
   );
 }
 
+
+function ImportPanel() {
+  const qc = useQueryClient();
+  const [file, setFile] = useState<File | null>(null);
+  const [name, setName] = useState("");
+  const [hint, setHint] = useState("");
+  const up = useMutation({
+    mutationFn: () => {
+      const q = new URLSearchParams({ filename: file!.name });
+      if (name) q.set("name", name);
+      if (hint) q.set("group_hint", hint);
+      return api<ImportResult>(`/captures/import?${q}`, { method: "POST", body: file!, headers: { "content-type": "application/octet-stream" } });
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["captures"] }); setFile(null); },
+  });
+  const r = up.data;
+  const field = "rounded border border-line bg-bg px-1.5 py-1";
+  return (
+    <Panel title="Import a capture (old session, or recorded on another machine)">
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="flex flex-col gap-0.5"><span className="kv-key">file (≤ 64 MiB)</span>
+          <input aria-label="capture file" type="file" accept=".zip,.json,.jsonl,.csv,.txt,.log,.dmesg,.trace" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="text-[12px]" /></label>
+        <label className="flex flex-col gap-0.5"><span className="kv-key">name (optional)</span><input aria-label="import name" className={field} value={name} onChange={(e) => setName(e.target.value)} /></label>
+        <label className="flex flex-col gap-0.5"><span className="kv-key">tracepoint group (ftrace text only)</span><input aria-label="group hint" placeholder="e.g. mt76" className={`${field} w-32`} value={hint} onChange={(e) => setHint(e.target.value)} /></label>
+        <Button tone="primary" disabled={!file || up.isPending} onClick={() => up.mutate()}>{up.isPending ? "Importing…" : "Import"}</Button>
+      </div>
+      <p className="mt-2 text-[11px] text-dim">
+        Accepted: WHD diagnostic bundle (.zip), WHD JSON/JSONL/CSV export, ftrace text, <code className="mono">dmesg</code> /
+        <code className="mono"> dmesg -T</code> / <code className="mono">journalctl -k -o short-monotonic</code> output, and
+        <code className="mono"> journalctl -o json</code>. The format is detected from content. Imported data is stored apart from live
+        history, keeps the origin machine's clock, and is never mixed with this host's events.
+      </p>
+      {up.error && <div className="mt-2"><ErrorBox error={up.error} /></div>}
+      {r && (
+        <div className="mt-3 rounded border border-accent/40 bg-accent/5 p-3" data-testid="import-result">
+          <div className="flex flex-wrap items-center gap-2"><Badge tone="accent">IMPORTED</Badge><b>{r.capture.name}</b><span className="mono text-dim">{r.capture.id}</span>
+            <span>format <b>{r.format}</b> · {r.capture.stats.events_kept} events · {r.telemetry_samples} telemetry samples · {r.devices_in_snapshot} device snapshot(s)</span></div>
+          {Object.keys(r.origin).length > 0 && <p className="mono mt-1 text-[11px] text-dim">origin: {Object.entries(r.origin).filter(([k, v]) => v !== null && v !== undefined && !["warnings", "imported_at", "skipped_lines", "all_events_demo"].includes(k)).map(([k, v]) => `${k}=${String(v)}`).join(" · ")}</p>}
+          {r.warnings.length > 0 && <ul className="mt-1 list-disc pl-4 text-[12px] text-warn">{r.warnings.map((w) => <li key={w}>{w}</li>)}</ul>}
+          <div className="mt-2 flex gap-2">
+            <Link className="rounded border border-accent/60 px-2.5 py-1 text-accent hover:bg-accent/10" to={`/viz?capture=${r.capture.id}`}>Visualize</Link>
+            <Link className="rounded border border-accent/60 px-2.5 py-1 text-accent hover:bg-accent/10" to={`/diagnostics?capture=${r.capture.id}`}>Diagnose</Link>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
 function Detail({ c }: { c: CaptureInfo }) {
   const evs = useQuery({ queryKey: ["cap-events", c.id, c.stats.events_kept], queryFn: () => api<WhdEvent[]>(`/captures/${c.id}/events?limit=1500`) });
   const [redact, setRedact] = useState(true);
@@ -93,6 +143,7 @@ export function CapturesPage() {
     <div className="space-y-3">
       <h1 className="text-lg font-semibold">Diagnostic captures</h1>
       <Create />
+      <ImportPanel />
       <Panel title="usbmon (optional USB URB capture)" right={usb.data && <Badge tone={usb.data.usbmon_present ? "ok" : "dim"}>{usb.data.usbmon_present ? "usbmon present" : "usbmon not loaded"}</Badge>}>
         <div className="flex flex-wrap items-center gap-2">
           <Button disabled={!usb.data?.usbmon_present || usb.data.active || usb.data.buses.length === 0} onClick={() => usbStart.mutate()}>Start usbmon (5 min cap)</Button>
@@ -106,7 +157,7 @@ export function CapturesPage() {
           {q.data!.map((c) => (
             <div key={c.id} className="panel p-3" data-testid="capture-row">
               <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={c.state === "running" ? "ok" : c.state === "expired" ? "warn" : "dim"}>{c.state}</Badge>
+                <Badge tone={c.state === "running" ? "ok" : c.state === "expired" ? "warn" : c.state === "imported" ? "accent" : "dim"}>{c.state === "imported" ? "IMPORTED" : c.state}</Badge>
                 {c.mode === "demo" && <Badge tone="demo">demo</Badge>}
                 <b>{c.name}</b><span className="mono text-dim">{c.id}</span>
                 <span className="text-[12px] text-dim">{c.stats.events_kept} events · {bytes(c.stats.bytes_kept)}{c.seconds_remaining !== null && c.seconds_remaining !== undefined ? ` · ${Math.round(c.seconds_remaining)} s left` : ""}</span>
@@ -115,6 +166,10 @@ export function CapturesPage() {
                   {c.state !== "running" && (<>
                     <label className="flex items-center gap-1 text-[11px]">replay ×<select aria-label="replay speed" value={speed} onChange={(e) => setSpeed(Number(e.target.value))} className="rounded border border-line bg-bg">{[1, 2, 4, 10].map((s) => <option key={s}>{s}</option>)}</select></label>
                     <Button onClick={() => replay.mutate(c.id)} disabled={c.stats.events_kept === 0}>Replay</Button>
+                  </>)}
+                  {c.state !== "running" && (<>
+                    <Link className="rounded border border-line px-2.5 py-1 text-[12px] hover:border-accent hover:text-accent" to={`/viz?capture=${c.id}`}>Visualize</Link>
+                    <Link className="rounded border border-line px-2.5 py-1 text-[12px] hover:border-accent hover:text-accent" to={`/diagnostics?capture=${c.id}`}>Diagnose</Link>
                   </>)}
                   <Button onClick={() => setOpen(open === c.id ? null : c.id)}>{open === c.id ? "Hide" : "Details / export"}</Button>
                   <Button onClick={() => { if (window.confirm(`Delete capture ${c.name}?`)) rm.mutate(c.id); }}>Delete</Button>

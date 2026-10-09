@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { api, post } from "../api/client";
 import { useInventory } from "../api/hooks";
 import type { DiagnosticReport, Hypothesis, LlmSummary, OllamaStatus } from "../api/types";
@@ -76,8 +76,9 @@ export function DiagnosticsPage() {
   const inv = useInventory();
   const [device, setDevice] = useState("");
   const [windowS, setWindowS] = useState(3600);
-  const [capture, setCapture] = useState("");
-  const caps = useQuery({ queryKey: ["captures"], queryFn: () => api<Array<{ id: string; name: string }>>("/captures") });
+  const [sp] = useSearchParams();
+  const [capture, setCapture] = useState(sp.get("capture") ?? "");
+  const caps = useQuery({ queryKey: ["captures"], queryFn: () => api<Array<{ id: string; name: string; state: string }>>("/captures") });
   const run = useMutation({ mutationFn: () => post<DiagnosticReport>("/diagnostics/analyze", { device_id: device || null, window_s: windowS, capture_id: capture || null }) });
   const rep = run.data;
   return (
@@ -89,7 +90,7 @@ export function DiagnosticsPage() {
         <label className="flex flex-col gap-0.5"><span className="kv-key">window</span>
           <select aria-label="window" value={windowS} onChange={(e) => setWindowS(Number(e.target.value))} disabled={!!capture} className="rounded border border-line bg-bg px-1.5 py-1">{[300, 900, 3600, 21600, 86400].map((w) => <option key={w} value={w}>{w >= 3600 ? `${w / 3600} h` : `${w / 60} min`}</option>)}</select></label>
         <label className="flex flex-col gap-0.5"><span className="kv-key">or analyze capture</span>
-          <select aria-label="capture" value={capture} onChange={(e) => setCapture(e.target.value)} className="rounded border border-line bg-bg px-1.5 py-1"><option value="">(live history)</option>{caps.data?.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.id}</option>)}</select></label>
+          <select aria-label="capture" value={capture} onChange={(e) => setCapture(e.target.value)} className="rounded border border-line bg-bg px-1.5 py-1"><option value="">(live history)</option>{caps.data?.map((c) => <option key={c.id} value={c.id}>{c.state === "imported" ? "IMPORTED · " : ""}{c.name} · {c.id}</option>)}</select></label>
         <Button tone="primary" onClick={() => run.mutate()} disabled={run.isPending}>{run.isPending ? "Analyzing…" : "Analyze"}</Button>
         <p className="text-[11px] text-dim">Deterministic rules over captured events; no language model involved.</p>
       </div>
@@ -97,7 +98,7 @@ export function DiagnosticsPage() {
       {!rep ? <Empty>Run an analysis to see observations, incidents, recurring patterns, correlations, unconfirmed hypotheses, missing instrumentation and suggested tests.</Empty> : (
         <>
           <div role="note" className="rounded border border-line bg-panel2 p-2 text-[12px]">
-            <b>{rep.scope.demo ? "DEMO DATA · " : ""}</b>{rep.disclaimer} <span className="mono text-dim">report {rep.report_id} · {rep.scope.event_count} events ({rep.scope.significant_event_count} significant) · {rep.scope.unattributed_events} unattributed</span>
+            <b>{rep.scope.demo ? "DEMO DATA · " : ""}{rep.scope.imported ? "IMPORTED CAPTURE (recorded elsewhere; not this host) · " : ""}</b>{rep.disclaimer} <span className="mono text-dim">report {rep.report_id} · {rep.scope.event_count} events ({rep.scope.significant_event_count} significant) · {rep.scope.unattributed_events} unattributed</span>
           </div>
           <Panel title={`Observations (${rep.observations.length}) — facts with evidence`}>
             <ul className="space-y-0.5 text-[12px]">{rep.observations.map((o) => <li key={o.id}><span className="mono text-ok">{o.id}</span> <span className="text-dim">[{o.kind}]</span> {o.text}{o.evidence_event_ids.length > 0 && <span className="mono text-[10px] text-dim"> events {o.evidence_event_ids.slice(0, 6).join(",")}</span>}</li>)}</ul>
