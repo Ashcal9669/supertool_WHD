@@ -26,6 +26,9 @@ tracefs, debugfs and usbmon are reported as *requires privilege* rather than gue
 
 ### Remote access
 
+Over SSH from another machine: `make serve-remote` binds to the address your SSH session arrived on and prints the URL
+(or `make serve HOST=<address>`; `HOST=0.0.0.0` binds every interface). The token login still applies.
+
 WHD binds `127.0.0.1` and refuses other addresses unless `WHD_ALLOW_REMOTE=1`. Do **not** expose it to the public
 internet. Use an SSH tunnel (works from macOS/Windows/Linux):
 
