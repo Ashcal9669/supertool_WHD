@@ -2,6 +2,7 @@ import { motion } from "framer-motion";
 import type { Device } from "../api/types";
 import { Empty } from "../components/ui";
 import { num, useSeries } from "../hooks/useTelemetry";
+import { ringKeys, ringName } from "../lib/rings";
 
 function Ring({ label, queued, max, rate, rateLabel, danger }: { label: string; queued: number | null; max: number; rate: number | null; rateLabel: string; danger?: boolean }) {
   const frac = queued === null ? 0 : Math.min(1, queued / Math.max(1, max));
@@ -24,10 +25,22 @@ function Ring({ label, queued, max, rate, rateLabel, danger }: { label: string; 
 
 /** TX/MCU/RX ring activity from 1 Hz debugfs samples (mt76q:* series). Nothing animates without samples. */
 export function QueueActivity({ d }: { d: Device }) {
-  const phy = d.phys[0];
+  if (d.phys.length === 0) return <Empty>No PHY registered for this device.</Empty>;
+  return (
+    <div className="space-y-4">
+      {d.phys.map((phy) => (
+        <div key={phy}>
+          {d.phys.length > 1 && <p className="mb-1 mono text-[11px] text-dim">{phy}</p>}
+          <PhyRings d={d} phy={phy} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PhyRings({ d, phy }: { d: Device; phy: string }) {
   const xs = useSeries(`mt76q:${phy}:xmit`, d.id);
   const rx = useSeries(`mt76q:${phy}:rx`, d.id);
-  if (!phy) return <Empty>No PHY registered for this device.</Empty>;
   if (xs.length === 0 && rx.length === 0)
     return <Empty>No ring samples yet. They come from passive debugfs reads via the privileged helper (mt76 devices only).</Empty>;
   const lx = xs[xs.length - 1];
@@ -35,12 +48,18 @@ export function QueueActivity({ d }: { d: Device }) {
   const maxOf = (arr: typeof xs, k: string) => Math.max(1, ...arr.map((s) => num(s, k) ?? 0));
   return (
     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-      {[["WFDMA0", "TX data ring (WFDMA0)"], ["MCUWM", "MCU command ring (WM)"], ["MCUFWQ", "MCU firmware-download ring"]].map(([k, label]) => (
-        <Ring key={k} label={label} queued={num(lx, `${k}.queued`)} max={maxOf(xs, `${k}.queued`)} rate={num(lx, `${k}.submitted`)} rateLabel="submits/s" danger={k === "MCUWM" && (num(lx, "MCUWM.queued") ?? 0) > 0 && (num(lx, "MCUWM.submitted") ?? 1) === 0} />
-      ))}
-      {[0, 1, 2].map((i) => (
-        <Ring key={i} label={`RX ring ${i}`} queued={num(lr, `rx${i}.queued`)} max={maxOf(rx, `rx${i}.queued`)} rate={num(lr, `rx${i}.advanced`)} rateLabel="adv/s" />
-      ))}
+      {ringKeys(xs, ".queued").map((key) => {
+        const k = ringName(key, ".queued");
+        // MCU command rings (named by the driver) with entries queued but nothing submitted in the last second
+        const cmdRing = /^MCU/i.test(k) && !/FW/i.test(k);
+        return (
+          <Ring key={k} label={`TX ring ${k}`} queued={num(lx, `${k}.queued`)} max={maxOf(xs, `${k}.queued`)} rate={num(lx, `${k}.submitted`)} rateLabel="submits/s" danger={cmdRing && (num(lx, `${k}.queued`) ?? 0) > 0 && (num(lx, `${k}.submitted`) ?? 1) === 0} />
+        );
+      })}
+      {ringKeys(rx, ".queued").map((key) => {
+        const k = ringName(key, ".queued");
+        return <Ring key={k} label={`RX ring ${k.replace(/^rx/, "")}`} queued={num(lr, `${k}.queued`)} max={maxOf(rx, `${k}.queued`)} rate={num(lr, `${k}.advanced`)} rateLabel="adv/s" />;
+      })}
       <p className="text-[11px] text-dim md:col-span-2 xl:col-span-3">Red MCU ring = commands queued while nothing was submitted in the last second (possible stuck command). Rates are cpu_idx/head deltas between 1 Hz debugfs reads.</p>
     </div>
   );

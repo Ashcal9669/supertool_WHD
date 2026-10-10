@@ -13,6 +13,7 @@ from whd.discovery import Discovery
 from whd.drivers import mt76, registry
 from whd.events.sources import make_event, parse_trace_line
 from whd.helper.client import RecordedHelper
+from whd.helper.protocol import HelperError
 
 DEV = "pci:0000:07:00.0:14c3:7927"
 REC = RecordedHelper(Path(__file__).parent / "fixtures/sysroots/mt7927-pcie-host/helper.json")
@@ -46,6 +47,29 @@ def test_parsers_on_recorded_output() -> None:
     ts = mt76.parse_tx_stats(rec("mt76/tx_stats"))
     assert ts["ba_miss"] == 0 and ts["amsdu"][0]["msdus"] == 1
     assert mt76.bitmask_links(0b101) == [0, 2]
+
+
+def test_xmit_queues_table_format_used_by_usb_and_other_families() -> None:
+    # core mt76_queues_read prints a numeric table instead of the mt792x `NAME: queued=` lines
+    table = (
+        "     queue | hw-queued |      head |      tail |\n"
+        "         0 |         0 |         5 |         5 |\n"
+        "         2 |         3 |        17 |        14 |\n"
+    )
+    assert mt76.parse_xmit_queues(table) == [
+        {"name": "TXQ0", "queued": 0, "head": 5, "tail": 5},
+        {"name": "TXQ2", "queued": 3, "head": 17, "tail": 14},
+    ]
+
+
+def test_a_device_can_have_several_phys() -> None:
+    host, dev = discover()
+    dev.phys = ["phyA", "phyB"]
+    assert mt76.pick_phy(dev, None) == "phyA" and mt76.pick_phy(dev, "phyB") == "phyB"
+    with pytest.raises(HelperError):
+        mt76.pick_phy(dev, "phy9")
+    with pytest.raises(HelperError):
+        mt76.read_snapshot(host, dev, False, phy="phy9")
 
 
 def test_wcid_dump_active_aggregation() -> None:

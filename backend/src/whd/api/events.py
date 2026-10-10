@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from whd.api.deps import get_state, require_auth
 from whd.clock import boottime_ns
+from whd.drivers.tracegroups import CORE_BUS_GROUPS, resolve_trace_groups
 from whd.helper.protocol import HelperError
 from whd.model.common import Model
 from whd.model.events import Event, EventFilter, Severity, TelemetrySample
@@ -326,35 +327,22 @@ async def usbmon_stop(actor: str = Auth, st: AppState = State) -> dict[str, Any]
 
 # ---------------------------------------------------------------- trace presets (derived from discovery)
 
-WIRELESS_TP_GROUPS = (
-    "mt76",
-    "mt792x",
-    "mt7925",
-    "mt7921",
-    "iwlwifi",
-    "ath11k",
-    "ath12k",
-    "rtw89",
-    "mac80211",
-    "cfg80211",
-)
-
 
 @router.get("/trace/presets")
 async def trace_presets(_: str = Auth, st: AppState = State) -> list[dict[str, Any]]:
     """Presets built only from tracepoints that exist on this kernel (nothing is assumed)."""
-    from whd.helper.protocol import TRACE_GROUPS
-
     h = st.helper
     if h is None or not h.available:
         return []
+    snap = st.inventory.snapshot
     try:
-        r = await asyncio.to_thread(h.call, "tracefs_events", 15.0, groups=TRACE_GROUPS, with_format=False)
+        wanted = await asyncio.to_thread(resolve_trace_groups, h, snap.devices if snap else [])
+        r = await asyncio.to_thread(h.call, "tracefs_events", 15.0, groups=wanted, with_format=False)
     except HelperError:
         return []
     groups: dict[str, dict[str, Any]] = r["groups"]
     out: list[dict[str, Any]] = []
-    for g in WIRELESS_TP_GROUPS:
+    for g in (x for x in wanted if x not in CORE_BUS_GROUPS):
         names = sorted(groups.get(g, {}))
         if not names:
             continue

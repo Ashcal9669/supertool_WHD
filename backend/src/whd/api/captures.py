@@ -135,15 +135,16 @@ async def _extras(st: AppState) -> dict[str, bytes]:
 
     for d in snap.devices:
         if mt76.is_mt76(d) and d.present:
-            try:
-                import asyncio
+            for phy in d.phys or [""]:
+                try:
+                    import asyncio
 
-                ins = await asyncio.to_thread(mt76.discover_instrumentation, st.host, d, True)
-                out[f"mt76_instrumentation_{d.phys[0] if d.phys else 'x'}.json"] = ins.model_dump_json(
-                    indent=1
-                ).encode()
-            except Exception as e:
-                out[f"mt76_instrumentation_error_{d.id[:20]}.txt"] = repr(e).encode()
+                    ins = await asyncio.to_thread(
+                        mt76.discover_instrumentation, st.host, d, True, phy or None
+                    )
+                    out[f"mt76_instrumentation_{phy or 'x'}.json"] = ins.model_dump_json(indent=1).encode()
+                except Exception as e:
+                    out[f"mt76_instrumentation_error_{phy or d.id[:20]}.txt"] = repr(e).encode()
     diag = st.extra.get("diagnostics_report_json")
     if diag:
         out["diagnostics.json"] = json.dumps(diag, indent=1, default=str).encode()

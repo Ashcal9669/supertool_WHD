@@ -19,14 +19,14 @@ from typing import Any, Literal
 from pydantic import Field
 
 from whd.clock import boottime_ns
-from whd.helper.protocol import TRACE_GROUPS, HelperError
+from whd.drivers.tracegroups import CORE_BUS_GROUPS, resolve_trace_groups
+from whd.helper.protocol import HelperError
 from whd.model.common import Model
 from whd.model.device import Device
 from whd.model.events import Event
 from whd.platform.host import Host
 
 MT76_RE = re.compile(r"^(mt76|mt7\d{2,3})")
-TP_GROUPS_OF_INTEREST = ("mt76", "mt792x", "mt7925", "mt7921", "mac80211", "cfg80211")
 
 
 def is_mt76(dev: Device) -> bool:
@@ -430,19 +430,31 @@ def parse_format(text: str) -> tuple[list[str], str | None]:
     return fields, (m.group(1) if m else None)
 
 
-def discover_instrumentation(host: Host, dev: Device, journal_running: bool) -> Instrumentation:
+def pick_phy(dev: Device, phy: str | None) -> str | None:
+    """The requested phy of this device (a device can register several); default: the first."""
+    if phy is None:
+        return dev.phys[0] if dev.phys else None
+    if phy not in dev.phys:
+        raise HelperError("args", f"{phy} is not a phy of this device ({', '.join(dev.phys) or 'none'})")
+    return phy
+
+
+def discover_instrumentation(
+    host: Host, dev: Device, journal_running: bool, phy: str | None = None
+) -> Instrumentation:
     helper = host.helper
     helper_ok = bool(helper and helper.available)
     tp: list[TracepointInfo] = []
     dbg: list[DebugfsEntry] | None = None
     truncated = False
     note = None
-    phy = dev.phys[0] if dev.phys else None
+    phy = pick_phy(dev, phy)
     if helper_ok and helper is not None:
         try:
-            r = helper.call("tracefs_events", 15.0, groups=TRACE_GROUPS, with_format=True)
+            groups = resolve_trace_groups(helper, [dev])
+            r = helper.call("tracefs_events", 15.0, groups=groups, with_format=True)
             for g, evs in r["groups"].items():
-                if g not in TP_GROUPS_OF_INTEREST:
+                if g in CORE_BUS_GROUPS:
                     continue
                 for name, fmt in evs.items():
                     f, pf = parse_format(fmt if isinstance(fmt, str) else "")
@@ -465,7 +477,7 @@ def discover_instrumentation(host: Host, dev: Device, journal_running: bool) -> 
             except HelperError as e:
                 note = (note + "; " if note else "") + f"debugfs: {e}"
     else:
-        note = "whd-helper not running: tracefs/debugfs discovery needs root"
+        note = "whd-helper not running: tracefs/debugfs discovery needs root (start WHD from a terminal so it can ask for sudo)"
     items = build_coverage(dev, tp, dbg, helper_ok, journal_running)
     custom = sorted(
         [f"tracepoint mt76:{t.name}" for t in tp if t.group == "mt76" and t.name.startswith("mlo_")]
@@ -498,8 +510,16 @@ BW_ENUM = {0: 20, 3: 40, 4: 80, 5: 160, 7: 320}  # as documented in link_stats' 
 
 
 def parse_xmit_queues(text: str) -> list[dict[str, Any]]:
-    out = []
+    """Two driver formats exist: `NAME: queued=N head=N tail=N` (mt792x on DMA devices) and the numeric table
+    printed by the core `mt76_queues_read` (USB and other families): `idx | hw-queued | head | tail |`."""
+    out: list[dict[str, Any]] = []
     for line in text.splitlines():
+        cols = [c.strip() for c in line.split("|")]
+        if len(cols) >= 4 and all(c.lstrip("-").isdigit() for c in cols[:4]):
+            out.append(
+                {"name": f"TXQ{cols[0]}", "queued": int(cols[1]), "head": int(cols[2]), "tail": int(cols[3])}
+            )
+            continue
         m = re.match(r"^\s*([\w-]+):\s*(.*)$", line)
         if not m:
             continue
@@ -653,13 +673,13 @@ class Mt76Snapshot(Model):
     skipped: list[dict[str, str]] = Field(default_factory=list)
 
 
-def read_snapshot(host: Host, dev: Device, include_wake: bool) -> Mt76Snapshot:
+def read_snapshot(host: Host, dev: Device, include_wake: bool, phy: str | None = None) -> Mt76Snapshot:
     helper = host.helper
     if helper is None or not helper.available:
         raise HelperError("unavailable", "whd-helper is not running; mt76 debugfs requires root")
     if not dev.phys:
         raise HelperError("missing", "device has no registered PHY (driver not bound)")
-    phy = dev.phys[0]
+    phy = pick_phy(dev, phy) or dev.phys[0]
     listing = helper.call("debugfs_list", 10.0, phy=phy)["entries"]
     present = {e["path"]: e for e in listing}
     snap = Mt76Snapshot(

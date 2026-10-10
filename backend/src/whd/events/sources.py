@@ -28,6 +28,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from whd.clock import boot_to_wall, boottime_ns, mono_to_boot_offset_ns
+from whd.drivers.tracegroups import CORE_GROUPS
 from whd.events.attrib import DeviceIndex
 from whd.events.bus import EventBus, SourceStatus
 from whd.events.classify import classify_kernel
@@ -919,10 +920,8 @@ KV = re.compile(r"(\w+)[=:]\s?([^\s,]+)")
 
 
 def trace_category(group: str, event: str) -> tuple[Category, Severity]:
-    if group == "mt76" and event.startswith("mlo"):
+    if group not in CORE_GROUPS and event.startswith("mlo"):
         return "mlo", "debug"
-    if group in ("mt76", "mt792x", "mt7921", "mt7925"):
-        return "trace", "debug"
     if group == "mac80211":
         if event.startswith("drv_"):
             return "driver_state", "debug"

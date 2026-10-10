@@ -141,12 +141,36 @@ class RecordedHelper:
             return self.data.get("ping", {})
         k = self.key(verb, args)
         calls = self.data.get("calls", {})
+        if k not in calls and verb == "tracefs_events":
+            sup = self._tracefs_subset(args)
+            if sup is not None:
+                return sup
         if k not in calls:
             raise HelperError("missing", f"no recording for {k}")
         v = calls[k]
         if isinstance(v, dict) and "error" in v and "code" in v:
             raise HelperError(v["code"], v["error"])
         return v
+
+    def _tracefs_subset(self, args: dict[str, Any]) -> dict[str, Any] | None:
+        """Callers choose groups from what the system has, so replay answers any group list from a recording
+        that covered at least those groups (with formats), instead of requiring an identical argument list."""
+        want = args.get("groups")
+        fmt = bool(args.get("with_format"))
+        for key, v in self.data.get("calls", {}).items():
+            if not key.startswith("tracefs_events:") or not isinstance(v, dict) or "groups" not in v:
+                continue
+            groups: dict[str, Any] = v["groups"]
+            if want is None:
+                return {"groups": {g: {} for g in groups}} if not fmt else None
+            if not any(groups.get(g) for g in want):
+                continue
+            has_fmt = any(isinstance(x, str) for evs in groups.values() for x in evs.values())
+            if fmt and not has_fmt:
+                continue
+            out = {g: (groups[g] if fmt else {n: True for n in groups[g]}) for g in want if g in groups}
+            return {"groups": out}
+        return None
 
     async def stream(self, verb: str, **args: Any) -> AsyncIterator[dict[str, Any]]:
         msgs = self.data.get("streams", {}).get(self.key(verb, args))

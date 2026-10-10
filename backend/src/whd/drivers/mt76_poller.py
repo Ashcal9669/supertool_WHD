@@ -32,7 +32,7 @@ class Mt76Poller(Source):
         snap = self.ctx.inventory.snapshot
         if snap is None:
             return []
-        return [(d.id, d.phys[0]) for d in snap.devices if mt76.is_mt76(d) and d.phys]
+        return [(d.id, phy) for d in snap.devices if mt76.is_mt76(d) for phy in d.phys]
 
     def _read(self, phy: str, path: str) -> str | None:
         h = self.ctx.host.helper
@@ -95,8 +95,8 @@ class Mt76Poller(Source):
                 except ValueError:
                     mask = None
                 if mask is not None:
-                    old = self.prev_links.get(dev_id)
-                    self.prev_links[dev_id] = mask
+                    old = self.prev_links.get(f"{dev_id}:{phy}")
+                    self.prev_links[f"{dev_id}:{phy}"] = mask
                     if old is not None and old != mask:
                         added = sorted(set(mt76.bitmask_links(mask)) - set(mt76.bitmask_links(old)))
                         removed = sorted(set(mt76.bitmask_links(old)) - set(mt76.bitmask_links(mask)))
@@ -126,8 +126,8 @@ class Mt76Poller(Source):
                 st = mt76.parse_runtime_pm(p)
                 w = st.get("low_power_wakes")
                 if w is not None:
-                    old_w = self.prev_wakes.get(dev_id)
-                    self.prev_wakes[dev_id] = w
+                    old_w = self.prev_wakes.get(f"{dev_id}:{phy}")
+                    self.prev_wakes[f"{dev_id}:{phy}"] = w
                     samples.append(
                         TelemetrySample(
                             ts_boottime_ns=now,

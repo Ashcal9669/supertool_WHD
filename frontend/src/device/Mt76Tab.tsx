@@ -1,15 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { api, post } from "../api/client";
 import type { Device, Mt76Instrumentation, Mt76Snapshot, TagSummary, TraceAggregate } from "../api/types";
 import { TimeChart, type SeriesDef } from "../components/TimeChart";
 import { Badge, Button, Empty, ErrorBox, KV, Loading, Panel, Tabs } from "../components/ui";
+import { useSeries } from "../hooks/useTelemetry";
 import { bootSec } from "../lib/format";
+import { ringDefs, ringKeys } from "../lib/rings";
+
+// kernel wireless subsystems; every other tracepoint group belongs to the driver(s) found on this system
+const CORE_TP_GROUPS = ["mac80211", "mac80211_msg", "cfg80211"];
 
 const STATUS_TONE = { available: "ok", partial: "warn", log_only: "accent", missing: "err" } as const;
 
-function Coverage({ d }: { d: Device }) {
-  const q = useQuery({ queryKey: ["mt76-instr", d.id], queryFn: () => api<Mt76Instrumentation>(`/devices/${encodeURIComponent(d.id)}/mt76/instrumentation`), staleTime: 20000 });
+const phyQs = (phy?: string) => (phy ? `phy=${encodeURIComponent(phy)}` : "");
+
+function Coverage({ d, phy }: { d: Device; phy?: string }) {
+  const q = useQuery({ queryKey: ["mt76-instr", d.id, phy], queryFn: () => api<Mt76Instrumentation>(`/devices/${encodeURIComponent(d.id)}/mt76/instrumentation?${phyQs(phy)}`), staleTime: 20000 });
   const patches = useQuery({ queryKey: ["patches"], queryFn: () => api<Array<{ id: string; file: string; summary: string; adds: string[]; validated: string; available: boolean }>>("/patches") });
   const [patch, setPatch] = useState<string | null>(null);
   const body = useQuery({ queryKey: ["patch", patch], enabled: !!patch, queryFn: () => api<string>(`/patches/${patch}`) });
@@ -18,7 +25,7 @@ function Coverage({ d }: { d: Device }) {
   const ins = q.data!;
   return (
     <div className="space-y-3">
-      {!ins.helper_available && <div className="rounded border border-accent/40 bg-accent/10 p-2 text-accent">{ins.helper_note ?? "Privileged helper not available."} Tracepoint and debugfs discovery needs it; availability below is marked “cannot check”, not “absent”.</div>}
+      {!ins.helper_available && <div className="rounded border border-accent/40 bg-accent/10 p-2 text-accent">{ins.helper_note ?? "Privileged helper not available."} Availability below is marked “cannot check”, not “absent”.</div>}
       {ins.custom_instrumentation.length > 0 && (
         <Panel title="Kernel-specific instrumentation discovered on this kernel">
           <div className="flex flex-wrap gap-1">{ins.custom_instrumentation.map((c) => <Badge key={c} tone="accent">{c}</Badge>)}</div>
@@ -52,10 +59,10 @@ function Coverage({ d }: { d: Device }) {
       <div className="grid gap-3 lg:grid-cols-2">
         <Panel title={`Tracepoints (${ins.tracepoints.length})`}>
           <div className="max-h-72 overflow-auto"><table className="mono w-full text-[11px]"><tbody>
-            {ins.tracepoints.filter((t) => t.group.startsWith("mt7")).map((t) => (
+            {ins.tracepoints.filter((t) => !CORE_TP_GROUPS.includes(t.group)).map((t) => (
               <tr key={t.group + t.name} className="align-top border-b border-line/30"><td className="pr-2 text-accent">{t.group}:{t.name}</td><td className="text-dim">{t.fields.map((f) => f.split(" ").slice(-1)[0].replace(/\[.*/, "")).join(" ")}</td></tr>
             ))}
-            <tr><td colSpan={2} className="pt-2 text-dim">+ {ins.tracepoints.filter((t) => !t.group.startsWith("mt7")).length} mac80211/cfg80211 tracepoints</td></tr>
+            <tr><td colSpan={2} className="pt-2 text-dim">+ {ins.tracepoints.filter((t) => CORE_TP_GROUPS.includes(t.group)).length} mac80211/cfg80211 tracepoints</td></tr>
           </tbody></table></div>
         </Panel>
         <Panel title={`debugfs (${ins.debugfs.length}) — read policy`}>
@@ -85,23 +92,21 @@ function Coverage({ d }: { d: Device }) {
   );
 }
 
-const XMIT: SeriesDef[] = [
-  { key: "WFDMA0.queued", label: "WFDMA0 queued", color: "#22d3ee" }, { key: "MCUWM.queued", label: "MCU WM queued", color: "#f472b6" },
-  { key: "MCUFWQ.queued", label: "MCU FW queued", color: "#a78bfa" },
-];
-const SUBM: SeriesDef[] = [
-  { key: "WFDMA0.submitted", label: "WFDMA0 submitted/s", color: "#34d399" }, { key: "MCUWM.submitted", label: "MCU WM cmds/s", color: "#f472b6" },
-];
-const RXQ: SeriesDef[] = [0, 1, 2].map((i) => ({ key: `rx${i}.advanced`, label: `RX${i} advanced/s`, color: ["#38bdf8", "#fbbf24", "#a78bfa"][i] }));
-
-function Queues({ d, snap }: { d: Device; snap?: Mt76Snapshot }) {
-  const phy = d.phys[0];
+function Queues({ d, snap, phy }: { d: Device; snap?: Mt76Snapshot; phy: string }) {
+  const xs = useSeries(`mt76q:${phy}:xmit`, d.id);
+  const rx = useSeries(`mt76q:${phy}:rx`, d.id);
+  const queuedKeys = ringKeys(xs, ".queued");
+  const submittedKeys = ringKeys(xs, ".submitted");
+  const advancedKeys = ringKeys(rx, ".advanced");
+  const queuedDefs = useMemo<SeriesDef[]>(() => ringDefs(queuedKeys, ".queued", "queued"), [queuedKeys.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const submittedDefs = useMemo<SeriesDef[]>(() => ringDefs(submittedKeys, ".submitted", "submitted/s"), [submittedKeys.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
+  const advancedDefs = useMemo<SeriesDef[]>(() => ringDefs(advancedKeys, ".advanced", "advanced/s"), [advancedKeys.join("|")]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div className="space-y-3">
       <div className="grid gap-3 xl:grid-cols-2">
-        <TimeChart title="TX / MCU ring occupancy (debugfs xmit-queues, 1 Hz)" series={`mt76q:${phy}:xmit`} defs={XMIT} />
-        <TimeChart title="Ring submissions per second (cpu_idx delta)" series={`mt76q:${phy}:xmit`} defs={SUBM} />
-        <TimeChart title="RX ring head advance per second" series={`mt76q:${phy}:rx`} defs={RXQ} />
+        <TimeChart title="TX / MCU ring occupancy (debugfs xmit-queues, 1 Hz)" series={`mt76q:${phy}:xmit`} defs={queuedDefs} />
+        <TimeChart title="Ring submissions per second (cpu_idx delta)" series={`mt76q:${phy}:xmit`} defs={submittedDefs} />
+        <TimeChart title="RX ring head advance per second" series={`mt76q:${phy}:rx`} defs={advancedDefs} />
       </div>
       {snap && (
         <div className="grid gap-3 lg:grid-cols-2">
@@ -121,10 +126,15 @@ function Queues({ d, snap }: { d: Device; snap?: Mt76Snapshot }) {
 }
 
 function Station({ snap }: { snap: Mt76Snapshot }) {
+  // panels for driver features appear only when this driver build exposes them (nothing is assumed per chip/kernel)
+  const seen = new Set([...snap.reads.map((r) => r.path), ...snap.skipped.map((s) => s.path)]);
+  const hasMlo = snap.mlo_active_links != null || !!snap.mlo_str_cap || Object.keys(snap.settings).some((k) => k.startsWith("mlo_"));
+  const hasLinkStats = seen.has("mt76/link_stats") || snap.link_stats.length > 0;
+  const hasWcid = seen.has("mt76/mlo_wcid_dump") || snap.wcid_dump.length > 0;
   return (
     <div className="space-y-3">
       <div className="grid gap-3 lg:grid-cols-2">
-        <Panel title="MLO state (debugfs)">
+        {hasMlo && <Panel title="MLO state (debugfs)">
           <KV rows={[
             ["mlo_active_links", snap.mlo_active_links !== null && snap.mlo_active_links !== undefined ? `0x${snap.mlo_active_links.toString(16)} → links [${snap.mlo_active_link_ids.join(", ")}]` : null],
             ["mlo_str_cap", snap.mlo_str_cap],
@@ -132,24 +142,24 @@ function Station({ snap }: { snap: Mt76Snapshot }) {
             ["link2 RSSI override", snap.settings.mlo_link2_rssi_override],
             ["mlo_diag_trace", snap.settings.mlo_diag_trace],
           ]} />
-        </Panel>
+        </Panel>}
         <Panel title="Runtime PM / settings">
           <KV rows={[...Object.entries(snap.runtime_pm).map(([k, v]) => [k, String(v)] as [string, string]), ...Object.entries(snap.settings).filter(([k]) => !k.startsWith("mlo_")).map(([k, v]) => [k, v] as [string, string])]} />
         </Panel>
       </div>
-      <Panel title="Per-link statistics (debugfs link_stats)">
+      {hasLinkStats && <Panel title="Per-link statistics (debugfs link_stats)">
         {snap.link_stats.length === 0 ? <Empty>{snap.include_wake ? "not exposed by this driver build" : "Not read: this file wakes the chip. Use “Read with chip wake”."}</Empty> : (
           <table className="mono w-full text-[12px]"><thead className="text-dim"><tr><th>wcid</th><th>link</th><th>phy</th><th>valid</th><th>tx bytes</th><th>tx pkts</th><th>rx bytes</th><th>rx pkts</th><th>rate</th><th>bw</th><th>mcs</th><th>nss</th></tr></thead>
             <tbody>{snap.link_stats.map((r) => <tr key={`${r.wcid}-${r.link}`} className={r.valid ? "" : "text-dim"}><td>{String(r.wcid)}</td><td>{String(r.link)}</td><td>{String(r.phy)}</td><td>{r.valid ? "yes" : "no"}</td><td>{String(r.tx_bytes)}</td><td>{String(r.tx_pkts)}</td><td>{String(r.rx_bytes)}</td><td>{String(r.rx_pkts)}</td><td>{String(r.rate_kbps)} kb/s</td><td>{r.bw_mhz ? String(r.bw_mhz) : `enum ${String(r.bw_enum)}`}</td><td>{String(r.mcs)}</td><td>{String(r.nss)}</td></tr>)}</tbody></table>
         )}
-      </Panel>
-      <Panel title="WCID table (debugfs mlo_wcid_dump)">
+      </Panel>}
+      {hasWcid && <Panel title="WCID table (debugfs mlo_wcid_dump)">
         {snap.wcid_dump.length === 0 ? <Empty>{snap.include_wake ? "not exposed by this driver build" : "Not read (wakes the chip)."}</Empty> : (
           <table className="mono w-full text-[12px]"><thead className="text-dim"><tr><th>wcid</th><th>link</th><th>valid</th><th>cipher</th><th>hw key</th><th>sta</th><th>BA/AMPDU TIDs</th><th>ampdu_state</th><th>rx_check_pn</th></tr></thead>
             <tbody>{snap.wcid_dump.map((r) => <tr key={`${r.wcid}-${r.link}`} className={r.valid ? "" : "text-dim"}><td>{String(r.wcid)}</td><td>{String(r.link)}</td><td>{r.valid ? "yes" : "no"}</td><td>{String(r.cipher)}</td><td>{String(r.hw_key_idx)}</td><td>{String(r.sta)}</td>
               <td>{(r.aggr_active as number[]).length ? (r.aggr_active as number[]).join(",") : "—"}</td><td>{String(r.ampdu_state)}</td><td>{String(r.rx_check_pn)}</td></tr>)}</tbody></table>
         )}
-      </Panel>
+      </Panel>}
       {snap.skipped.length > 0 && <p className="text-[11px] text-dim">Skipped: {snap.skipped.map((s) => `${s.path} (${s.reason})`).join("; ")}</p>}
     </div>
   );
@@ -171,6 +181,8 @@ function TraceControl({ d }: { d: Device }) {
   const tids = a ? [...new Set(a.tid_link.map((c) => c.tid))].sort((x, y) => x - y) : [];
   const lks = a ? [...new Set(a.tid_link.map((c) => c.link))].sort((x, y) => x - y) : [];
   const max = Math.max(1, ...(a?.tid_link.map((c) => c.count) ?? [1]));
+  // per-link datapath panels need link-tagged tracepoints; show them only if this kernel has them or events exist
+  const hasLinkTrace = (presets.data ?? []).some((p) => p.events.some((e) => /\/mlo_/.test(e))) || !!(a && (a.tid_link.length || a.links.length || a.migrations.length));
   return (
     <div className="space-y-3">
       <Panel title="Trace session (isolated tracefs instance; WHD never touches the global trace buffer)">
@@ -186,7 +198,7 @@ function TraceControl({ d }: { d: Device }) {
         {(start.error || stop.error) && <div className="mt-2"><ErrorBox error={start.error ?? stop.error} /></div>}
         <p className="mt-1 text-[11px] text-dim">{PRESETS.length === 0 ? "No tracepoints discovered (helper not running or tracefs unavailable). " : `Events: ${PRESETS[preset]?.events.join(", ")}. `} Requires the privileged helper. Tracing only enables tracepoints in WHD's own instance; it does not change the driver or interfaces.</p>
       </Panel>
-      <div className="grid gap-3 xl:grid-cols-2">
+      {hasLinkTrace && <div className="grid gap-3 xl:grid-cols-2">
         <Panel title="Observed TX link per TID (mt76:mlo_tx_select, last 15 min)">
           {tids.length === 0 ? <Empty>No mlo_tx_select events captured. Start the “MLO datapath” trace while traffic flows.</Empty> : (
             <table className="mono text-[12px]"><thead className="text-dim"><tr><th className="pr-3">TID \ link</th>{lks.map((l) => <th key={l} className="px-3">link {l}</th>)}</tr></thead>
@@ -201,12 +213,12 @@ function TraceControl({ d }: { d: Device }) {
           )}
           {a && a.path_counts && Object.keys(a.path_counts).length > 0 && <p className="mt-1 text-[11px] text-dim">TX path ids: {Object.entries(a.path_counts).map(([k, v]) => `${k}×${v}`).join(" ")}</p>}
         </Panel>
-      </div>
-      <Panel title={`Link migrations (TX path changed for a flow) — ${a?.migrations.length ?? 0}`}>
+      </div>}
+      {hasLinkTrace && <Panel title={`Link migrations (TX path changed for a flow) — ${a?.migrations.length ?? 0}`}>
         {!a || a.migrations.length === 0 ? <Empty>none observed</Empty> : (
           <table className="mono w-full text-[11px]"><tbody>{a.migrations.slice(-40).reverse().map((m, i) => <tr key={i}><td className="text-dim">{bootSec(m.ts_boottime_ns)}s</td><td>{m.flow}</td><td>link {m.from_link} → <span className="text-accent">link {m.to_link}</span></td><td className="text-dim">orig link {m.orig_link ?? "?"}</td></tr>)}</tbody></table>
         )}
-      </Panel>
+      </Panel>}
     </div>
   );
 }
@@ -227,10 +239,20 @@ function Tags({ d }: { d: Device }) {
 export function Mt76Tab({ d }: { d: Device }) {
   const [tab, setTab] = useState<"coverage" | "queues" | "station" | "trace" | "tags">("coverage");
   const [wake, setWake] = useState(false);
-  const snap = useQuery({ queryKey: ["mt76-snap", d.id, wake], queryFn: () => api<Mt76Snapshot>(`/devices/${encodeURIComponent(d.id)}/mt76/snapshot?wake=${wake}`), refetchInterval: 5000, enabled: tab === "queues" || tab === "station", retry: false });
+  const [phyPick, setPhyPick] = useState("");
+  const phy = d.phys.includes(phyPick) ? phyPick : d.phys[0];
+  const snap = useQuery({ queryKey: ["mt76-snap", d.id, phy, wake], queryFn: () => api<Mt76Snapshot>(`/devices/${encodeURIComponent(d.id)}/mt76/snapshot?wake=${wake}&${phyQs(phy)}`), refetchInterval: 5000, enabled: tab === "queues" || tab === "station", retry: false });
   return (
     <div className="space-y-3">
       <Tabs value={tab} onChange={setTab} tabs={[{ id: "coverage", label: "Instrumentation coverage" }, { id: "queues", label: "Queues & rings" }, { id: "station", label: "Station / links" }, { id: "trace", label: "Datapath trace" }, { id: "tags", label: "Driver log tags" }]} />
+      {d.phys.length > 1 && (
+        <label className="flex items-center gap-2 text-[12px] text-dim">PHY
+          <select aria-label="phy" value={phy} onChange={(e) => setPhyPick(e.target.value)} className="rounded border border-line bg-bg px-1.5 py-1 text-fg">
+            {d.phys.map((p) => <option key={p} value={p}>{p}</option>)}
+          </select>
+          this adapter registers {d.phys.length} PHYs; debugfs and ring data are per PHY
+        </label>
+      )}
       {(tab === "queues" || tab === "station") && (
         <div className="flex items-center gap-2">
           <Button tone={wake ? "primary" : "default"} onClick={() => { if (wake || window.confirm("Reading link_stats / mlo_wcid_dump / tx_stats takes the mt76 mutex and wakes the chip from runtime power save. These reads change nothing else. Continue?")) setWake(!wake); }}>
@@ -240,8 +262,8 @@ export function Mt76Tab({ d }: { d: Device }) {
           {snap.error && <span className="text-err">{(snap.error as Error).message}</span>}
         </div>
       )}
-      {tab === "coverage" && <Coverage d={d} />}
-      {tab === "queues" && <Queues d={d} snap={snap.data} />}
+      {tab === "coverage" && <Coverage d={d} phy={phy} />}
+      {tab === "queues" && <Queues d={d} snap={snap.data} phy={phy} />}
       {tab === "station" && (snap.data ? <Station snap={snap.data} /> : snap.isLoading ? <Loading /> : <Empty>Snapshot unavailable (see message above).</Empty>)}
       {tab === "trace" && <TraceControl d={d} />}
       {tab === "tags" && <Tags d={d} />}

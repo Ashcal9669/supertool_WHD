@@ -182,8 +182,9 @@ def _copy_dir_attrs(path: str, dst: Path, scrub: Scrubber, recurse: bool, depth:
 def _record_helper(socket_path: Path, devices: list[Any], scrub: Scrubber) -> dict[str, Any] | None:
     """Record read-only helper responses (config space, debugfs listing + passive/wakes_device reads, tracefs
     event formats) so demo mode can replay Phase 2/5 views."""
+    from whd.drivers.tracegroups import resolve_trace_groups
     from whd.helper.client import HelperClient, RecordingHelper
-    from whd.helper.protocol import TRACE_GROUPS, HelperError
+    from whd.helper.protocol import HelperError
 
     rec = RecordingHelper(HelperClient(socket_path))
     try:
@@ -208,7 +209,11 @@ def _record_helper(socket_path: Path, devices: list[Any], scrub: Scrubber) -> di
                         rec.call("debugfs_read", phy=phy, path=e["path"])
                     except HelperError:
                         pass
-    calls: list[dict[str, Any]] = [{}, {"groups": TRACE_GROUPS, "with_format": True}]
+    try:
+        groups = resolve_trace_groups(rec, devices)
+    except HelperError:
+        groups = []
+    calls: list[dict[str, Any]] = [{}, {"groups": groups, "with_format": True}]
     for args in calls:
         try:
             rec.call("tracefs_events", 10.0, **args)

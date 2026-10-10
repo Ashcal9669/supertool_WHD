@@ -4,8 +4,13 @@ A browser-based, Linux-first debugging platform for PCIe and USB wireless adapte
 inspection, live event correlation, mt76-specific instrumentation, bounded captures with replay and diagnostic
 bundles, and an evidence-based diagnostic engine. **Read-only by default**; the web server never runs as root.
 
-Developed and verified on Debian 13, kernel 7.2/7.3 (custom mt76 build), x86_64, with two MediaTek MT7927 PCIe adapters.
-See *Verification status* below for exactly what was validated on hardware versus fixtures.
+Everything is discovered at runtime from the machine it runs on (adapters, buses, drivers, tracepoints, debugfs files,
+queue names); nothing assumes a particular chip or bus. Discovery and the PHY views work for any PCIe/USB wireless
+adapter; the `mt76` module is specific to the MediaTek mt76 driver family.
+
+Developed on Debian 13, kernel 7.2/7.3, x86_64, with two MediaTek MT7927 PCIe adapters. **PCIe on that machine is the
+only hardware it has been validated on.** USB and SDIO adapters are untested on real hardware; see *Verification status*
+and *Known limitations* before pointing it at one.
 
 ## Screenshots
 
@@ -46,20 +51,52 @@ WHD_TOKEN=... WHD_SHOTS=../docs/screenshots WHD_URL=http://127.0.0.1:8802 npx pl
 
 ## Quick start
 
+Requirements: Linux with `sudo`, [`uv`](https://docs.astral.sh/uv/) (it fetches Python ≥ 3.12 if needed) and Node.js 20+
+with `npm`. No kernel headers or compiler are needed to run it.
+
 ```bash
-make setup                 # uv sync (backend, Python ≥3.12) + npm ci (frontend)
-make build                 # regenerate API types + production frontend build (served by the backend at /)
-make helper                # (separate terminal, asks for sudo) privileged read-only helper
-make serve                 # http://127.0.0.1:8787  (live hardware)
-cd backend && uv run whd token --show   # access token for the login page
+git clone https://github.com/Ashcal9669/supertool_WHD.git && cd supertool_WHD
+make setup                 # backend (uv sync) + frontend (npm ci) dependencies
+make build                 # production frontend build, served by the backend at /
+make serve                 # live hardware on http://127.0.0.1:8787, then log in with the token (below)
 ```
 
-Try it without hardware: `make demo` (default scenario `mt7927-pcie-host`; others: `mt7921u-usb`, `renamed-netdev`,
-`pci-no-driver`, `no-nl80211`, `empty`). Demo mode shows a striped **DEMO MODE** banner, writes to a separate database
-(`whd-demo-<scenario>.db`) and its event stream is **synthetic** (a scripted incident). `WHD_DEMO_SPEED=4` speeds it up.
+`make serve` is the only command you need. It starts the web server as your normal user and also starts the privileged
+helper, asking for your `sudo` password once in that same terminal (see *The privileged helper*). Then:
 
-The helper is optional. Without it WHD still shows sysfs/nl80211/journal data; PCIe config space (ASPM/AER/MSI),
-tracefs, debugfs and usbmon are reported as *requires privilege* rather than guessed.
+```bash
+cd backend && uv run whd token --show      # the access token for the login page
+```
+
+* **Over SSH** (the usual case on a headless box): run `make serve-remote` instead. It binds to the address your SSH
+  session arrived on, prints the URL, and you browse to it from your own machine. See *Remote access*.
+* **No hardware / just looking:** `make demo` serves recorded data with a scripted incident (default scenario
+  `mt7927-pcie-host`; others: `mt7921u-usb`, `renamed-netdev`, `pci-no-driver`, `no-nl80211`, `empty`). Demo mode shows a
+  striped **DEMO MODE** banner, writes to a separate database (`whd-demo-<scenario>.db`) and its event stream is
+  **synthetic**. `WHD_DEMO_SPEED=4` speeds it up. It needs no sudo.
+* **Bring a log from another machine:** start it and use the Captures page (see *Importing captures*).
+
+### The privileged helper
+
+Some data needs root: PCIe config space (ASPM/AER/MSI), tracefs, mt76 debugfs and usbmon. WHD keeps that out of the web
+server with a small separate process, `whd-helper`, that only answers a fixed list of read-only requests and only for
+your user.
+
+You do not start it by hand. `whd serve` (and `make serve` / `make serve-remote`) does it for you:
+
+1. It asks for your `sudo` password once, in the terminal you launched from.
+2. It runs the helper as a root child process and then clears the cached `sudo` credential, so the web process is not
+   left able to run `sudo` without a password.
+3. The helper stops when the server stops (Ctrl+C), and removes its socket.
+
+If it cannot start the helper (no `sudo`, no terminal to ask for a password, wrong password) the server still starts and
+prints one line saying what is disabled. Those views then say *requires privilege* or *cannot check* instead of showing
+guesses; sysfs, nl80211 and kernel-log data still work. Options:
+
+* `--helper off` (or `WHD_HELPER=off`): never start it.
+* Already running one (for example from a service)? It is reused instead of starting a second.
+* `make helper` runs it by hand in the foreground; `deploy/systemd/` has example units for service installs (untested).
+* If the helper crashes while the server is running it is not restarted; restart `whd serve`.
 
 ### Importing captures from other machines / old sessions
 
@@ -75,7 +112,8 @@ member/size caps, per-field length caps; malformed lines are counted and reporte
 ### Remote access
 
 Over SSH from another machine: `make serve-remote` binds to the address your SSH session arrived on and prints the URL
-(or `make serve HOST=<address>`; `HOST=0.0.0.0` binds every interface). The token login still applies.
+(or `make serve HOST=<address>`; `HOST=0.0.0.0` binds every interface). The token login still applies, and the `sudo`
+prompt for the helper appears in the terminal where you ran it.
 
 WHD binds `127.0.0.1` and refuses other addresses unless `WHD_ALLOW_REMOTE=1`. Do **not** expose it to the public
 internet. Use an SSH tunnel (works from macOS/Windows/Linux):
@@ -100,7 +138,7 @@ make fixtures   # rebuild derived/synthetic fixtures and demo event streams
 make consts     # regenerate kernel constants from /usr/src/linux-headers-$(uname -r)
 ```
 
-Environment variables: `WHD_HOST`, `WHD_PORT`, `WHD_ALLOW_REMOTE`, `WHD_DEMO`, `WHD_DEMO_SPEED`, `WHD_STATE_DIR`,
+Environment variables: `WHD_HOST`, `WHD_PORT`, `WHD_ALLOW_REMOTE`, `WHD_DEMO`, `WHD_DEMO_SPEED`, `WHD_HELPER` (`auto`/`off`), `WHD_STATE_DIR`,
 `WHD_CONFIG_DIR`, `WHD_HELPER_SOCKET`, `WHD_OLLAMA_URL`, `WHD_OLLAMA_MODEL`, `WHD_ENABLE_DOCS` (API docs, off by default),
 `WHD_COOKIE_SECURE`, `WHD_NO_EVENT_SOURCES`.
 
@@ -129,12 +167,17 @@ Clock handling: `docs/clock-domains.md`. Optional kernel instrumentation proposa
   regulatory/interface changes, packet injection, interface up/down, scans. There are no endpoints that do any of these.
 * nl80211 access is an allowlist of GET commands (`platform/nl80211/source.py`); sysfs reads refuse
   `reset/remove/rescan/rom/resource*/driver_override/bind/unbind/...`.
+* The helper is started by the CLI launcher with `sudo`, serves only your uid (checked with `SO_PEERCRED` on every
+  connection), and exposes only fixed read-only requests. The web server is never root.
+* Some debugfs reads are only safe on some buses. `mt76/napi_threaded` dereferences memory that exists only on PCIe
+  devices, so reading it oopses the kernel on USB (before 7.3) and SDIO; the helper refuses it everywhere except PCIe
+  and fails closed on an unknown bus (GitHub issue #1).
 * The helper writes only inside its own tracefs instance. debugfs files are read only if on a reviewed allowlist, with a
   side-effect tier: `passive` (memory only), `wakes_device` (takes the mt76 mutex and wakes the chip; needs explicit
   `wake=true`, audit-logged), `mmio`/`mcu` (need an explicit allow the UI does not offer), `never` (write-only action
   nodes such as `chip_reset`, and firmware-RAM dump nodes).
 * Mutating API calls (start/stop trace, captures, replay, usbmon) are audit-logged (`audit` table).
-* WHD does not modify `~/mt76` or any driver tree. Kernel patch *proposals* live in `docs/patches/` and are never applied.
+* WHD does not modify any driver source tree. Kernel patch *proposals* live in `docs/patches/` and are never applied.
 
 ## Implemented vs. not implemented
 
@@ -176,6 +219,10 @@ was never loaded. WHD reports `mcu_send/mcu_resp` as *missing* on this kernel.
 
 ## Known limitations
 
+* USB and SDIO adapters have not been tested on real hardware. The other `passive` debugfs files were checked by reading
+  the handlers in one mt76 source tree and found memory-only on every bus, but other kernel versions can differ.
+* An adapter that registers several PHYs is sampled per PHY; the mt76 tab has a PHY selector. This is untested on real
+  multi-PHY hardware.
 * sysfs-derived bus events are accurate only to the poll interval (2 s); see `docs/clock-domains.md`.
 * Custom `MLO_*` printk lines have no device prefix, so they cannot be attributed to one of several adapters (reported as
   unattributed, not guessed).

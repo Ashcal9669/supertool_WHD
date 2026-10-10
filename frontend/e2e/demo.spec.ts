@@ -25,7 +25,7 @@ test.describe("demo mode", () => {
     await expect(page.locator("svg[aria-label='firmware command sequence']")).toBeVisible({ timeout: 30_000 });
     await expect(page.getByText(/TIMEOUT seq 12|timeout seq 12/).first()).toBeVisible({ timeout: 60_000 });
     await page.getByRole("button", { name: "TX/RX queue activity" }).click();
-    await expect(page.getByText("TX data ring (WFDMA0)")).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/^TX ring \S+/).first()).toBeVisible({ timeout: 20_000 }); // ring names come from the driver
     // stop capture, details, replay
     await page.getByRole("link", { name: "Captures" }).click();
     await page.getByTestId("capture-row").first().getByRole("button", { name: "Stop" }).click();

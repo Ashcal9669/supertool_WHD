@@ -42,30 +42,34 @@ async def _dev(st: AppState, device_id: str) -> Device:
 
 @router.get("/devices/{device_id}/mt76/instrumentation", response_model=mt76.Instrumentation)
 async def instrumentation(
-    device_id: str, refresh: bool = False, _: str = Auth, st: AppState = State
+    device_id: str, refresh: bool = False, phy: str | None = None, _: str = Auth, st: AppState = State
 ) -> mt76.Instrumentation:
     dev = await _dev(st, device_id)
     cache: dict[str, tuple[float, mt76.Instrumentation]] = st.extra.setdefault("mt76_instr", {})
-    hit = cache.get(device_id)
+    key = f"{device_id}|{phy or ''}"
+    hit = cache.get(key)
     if hit and not refresh and time.monotonic() - hit[0] < _CACHE_TTL:
         return hit[1]
     jr = bool(st.events and st.bus.sources.get("journal") and st.bus.sources["journal"].state == "running")
     if st.settings.mode == "demo":
         jr = True  # demo replays recorded kernel-log events
-    res = await asyncio.to_thread(mt76.discover_instrumentation, st.host, dev, jr)
-    cache[device_id] = (time.monotonic(), res)
+    try:
+        res = await asyncio.to_thread(mt76.discover_instrumentation, st.host, dev, jr, phy)
+    except HelperError as e:
+        raise HTTPException(422, str(e)) from e
+    cache[key] = (time.monotonic(), res)
     return res
 
 
 @router.get("/devices/{device_id}/mt76/snapshot", response_model=mt76.Mt76Snapshot)
 async def snapshot(
-    device_id: str, wake: bool = False, actor: str = Auth, st: AppState = State
+    device_id: str, wake: bool = False, phy: str | None = None, actor: str = Auth, st: AppState = State
 ) -> mt76.Mt76Snapshot:
     dev = await _dev(st, device_id)
     try:
-        snap = await asyncio.to_thread(mt76.read_snapshot, st.host, dev, wake)
+        snap = await asyncio.to_thread(mt76.read_snapshot, st.host, dev, wake, phy)
     except HelperError as e:
-        raise HTTPException(409, str(e)) from e
+        raise HTTPException(422 if e.code == "args" else 409, str(e)) from e
     if wake:
         st.store.audit(
             actor, "mt76_snapshot_wake", {"device": device_id, "paths": [r.path for r in snap.reads]}

@@ -437,6 +437,11 @@ RULES: list[Rule] = [
 
 KV_RE = re.compile(r"([\w.\[\]-]+)=(\S+)")
 
+# `TAG: key=value ...` printks are a convention of whatever driver build is installed; these prefixes only choose the
+# event category. Unlisted tags are still kept as driver.kv_trace events in the default category.
+MLO_TAG_PREFIXES = ("MLO_", "ROC_", "ROCEV", "EMLSR", "T2LM", "TTLM")
+FW_TAG_PREFIXES = ("FW_", "MCU_")
+
 
 def _fmt(t: str, d: dict[str, Any]) -> str:
     class Safe(dict[str, Any]):
@@ -499,9 +504,9 @@ def classify_kernel(message: str, priority: int | None, device_prefix: str | Non
                 continue
             g["fields"] = kv
             tag = g.get("tag", "")
-            if tag.startswith(("MLO_", "ROC_", "ROCEV", "EMLSR", "T2LM", "TTLM")):
+            if tag.startswith(MLO_TAG_PREFIXES):
                 cat = "mlo"
-            elif tag.startswith(("FW_", "MCU_")) or "_FW_" in tag:
+            elif tag.startswith(FW_TAG_PREFIXES) or "_FW_" in tag:
                 cat = "firmware"
             sev = "debug" if psev in ("info", "debug") else psev
         data.update({k: v for k, v in g.items() if k not in ("first", "kv")})

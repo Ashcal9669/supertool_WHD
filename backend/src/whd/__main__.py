@@ -36,15 +36,36 @@ def cmd_serve(a: argparse.Namespace) -> int:
         )
         return 2
     setup_logging(a.log_level)
-    uvicorn.run(
-        create_app(s),
-        host=s.host,
-        port=s.port,
-        log_config=None,
-        ws_max_size=1 << 20,
-        proxy_headers=False,
-        server_header=False,
-    )
+    launcher = None
+    mode = a.helper or os.environ.get("WHD_HELPER", "auto")
+    if mode != "off" and not s.demo_scenario:
+        from whd.helper.launcher import HelperLauncher
+
+        launcher = HelperLauncher(s.helper_socket, log_path=s.state_dir / "helper.log")
+        res = launcher.start()
+        if res.ok:
+            print(f"WHD: helper: {res.detail}", file=sys.stderr, flush=True)
+        else:
+            print(
+                f"WHD: helper not started: {res.detail}. mt76 debugfs, tracing and PCI config stay unavailable "
+                "(everything else works). Start WHD from a terminal so sudo can ask for a password, or run "
+                "`make helper`, or pass --helper off to silence this.",
+                file=sys.stderr,
+                flush=True,
+            )
+    try:
+        uvicorn.run(
+            create_app(s),
+            host=s.host,
+            port=s.port,
+            log_config=None,
+            ws_max_size=1 << 20,
+            proxy_headers=False,
+            server_header=False,
+        )
+    finally:
+        if launcher is not None:
+            launcher.stop()
     return 0
 
 
@@ -108,6 +129,12 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--port", type=int)
     s.add_argument("--demo", metavar="SCENARIO", help="serve a fixture scenario in DEMO mode")
     s.add_argument("--allow-remote", action="store_true")
+    s.add_argument(
+        "--helper",
+        choices=("auto", "off"),
+        help="auto (default): start the privileged helper if it is not running, asking for sudo in this "
+        "terminal; off: never start it (env WHD_HELPER)",
+    )
     s.add_argument("--static-dir")
     s.add_argument("--log-level", default="INFO")
     s.add_argument("--i-know-this-is-root", action="store_true", help=argparse.SUPPRESS)

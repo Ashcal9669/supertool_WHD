@@ -13,7 +13,7 @@ Hard rules that apply to every phase:
 - Read-only by default. WHD never resets devices, unbinds drivers, reloads modules, modifies firmware, writes PCI config space, changes regulatory or interface settings, enables injection, or writes to debugfs or tracefs nodes outside its own trace instance.
 - No fabricated data. Every value comes from a named source. Anything that cannot be read is reported as unavailable, together with the reason. Synthetic data only ever appears in demo mode, which is visually distinct.
 - Nothing is assumed about kernel version, chipset, tracepoints, debugfs nodes or firmware interfaces. All of these are discovered at runtime.
-- WHD does not modify existing source trees (`~/mt76`, `~/mt76-mlo-build` or any other repository). Kernel instrumentation that is found to be missing is written up as an optional, separate patch proposal and never applied automatically.
+- WHD does not modify existing source trees (driver trees or any other repository). Kernel instrumentation that is found to be missing is written up as an optional, separate patch proposal and never applied automatically.
 - The web server never runs as root.
 
 ## 2. Development host baseline (observed 2026-10-09)

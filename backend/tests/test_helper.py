@@ -90,6 +90,35 @@ def test_debugfs_policy(roots: Roots) -> None:
         h.debugfs_read(phy="../phy0", path="mt76/xmit-queues")
 
 
+def test_napi_threaded_read_only_on_pci(roots: Roots) -> None:
+    # reading napi_threaded oopses the kernel on USB (before 7.3) and SDIO: only PCIe may read it
+    (roots.debugfs / "ieee80211/phy0/mt76/napi_threaded").write_text("1\n")
+    usb = roots.sys / "devices/pci0000:00/0000:00:14.0/usb2/2-2/2-2:1.3"
+    usb.mkdir(parents=True)
+    (roots.sys / "bus/usb").mkdir(parents=True)
+    os.symlink("../../../bus/pci", roots.sys / "devices/pci0000:00/0000:07:00.0/subsystem")
+    os.symlink("../../../../../../bus/usb", usb / "subsystem")
+    phy = roots.sys / "class/ieee80211/phy0"
+    phy.mkdir(parents=True)
+    h = helper(roots)
+    for target, ok in ((None, False), ("../../../devices/pci0000:00/0000:07:00.0", True), (str(usb), False)):
+        if (phy / "device").is_symlink():
+            (phy / "device").unlink()
+        if target:
+            os.symlink(target, phy / "device")
+        lst = {e["path"]: e["tier"] for e in h.debugfs_list(phy="phy0")["entries"]}
+        if ok:
+            assert lst["mt76/napi_threaded"] == "passive"
+            assert h.debugfs_read(phy="phy0", path="mt76/napi_threaded")["text"] == "1\n"
+        else:
+            assert lst["mt76/napi_threaded"] == "never"
+            with pytest.raises(HelperError) as ei:
+                h.debugfs_read(phy="phy0", path="mt76/napi_threaded")
+            assert ei.value.code == "policy"
+            with pytest.raises(HelperError):  # an explicit allow list cannot override it
+                h.debugfs_read(phy="phy0", path="mt76/napi_threaded", allow=["mmio", "mcu", "never"])
+
+
 def test_policy_never_tier_cannot_be_allowed(roots: Roots) -> None:
     with pytest.raises(HelperError):
         helper(roots).debugfs_read(phy="phy0", path="mt76/chip_reset", allow=["mmio", "mcu", "never"])

@@ -27,6 +27,7 @@ import grp
 import json
 import logging
 import os
+import signal
 import socket
 import stat
 import struct
@@ -167,8 +168,17 @@ class Helper:
             raise HelperError("missing", f"no debugfs directory for {phy}")
         return d
 
+    def _phy_bus(self, phy: str) -> str | None:
+        try:
+            return os.path.basename(
+                os.readlink(self.roots.sys / "class/ieee80211" / phy / "device/subsystem")
+            )
+        except OSError:
+            return None
+
     def debugfs_list(self, phy: str, max_entries: int = 2000) -> dict[str, Any]:
         base = self._phy_dir(phy)
+        bus = self._phy_bus(phy)
         out: list[dict[str, Any]] = []
         for dirpath, dirnames, filenames in os.walk(base):
             rel_dir = os.path.relpath(dirpath, base)
@@ -181,7 +191,7 @@ class Helper:
                     st = os.lstat(os.path.join(dirpath, fn))
                 except OSError:
                     continue
-                tier, desc = policy.classify(rel)
+                tier, desc = policy.classify(rel, bus)
                 out.append(
                     {
                         "path": rel,
@@ -200,7 +210,7 @@ class Helper:
         base = self._phy_dir(phy)
         if not isinstance(path, str) or not RELPATH_RE.match(path) or ".." in path.split("/"):
             raise HelperError("args", "invalid debugfs path")
-        tier, desc = policy.classify(path)
+        tier, desc = policy.classify(path, self._phy_bus(phy))
         if tier is None or tier == "never":
             raise HelperError("policy", f"{path}: {desc}")
         if tier in ("mmio", "mcu") and tier not in (allow or []):
@@ -553,7 +563,19 @@ async def serve(helper: Helper, path: Path, group: str | None) -> None:
         server.close()
         if hasattr(server, "close_clients"):
             server.close_clients()
-        helper._trace_teardown()
+        with contextlib.suppress(OSError):
+            helper._trace_teardown()
+        with contextlib.suppress(OSError):
+            path.unlink()  # a stale socket file would make the helper look available after it exited
+
+
+async def _serve_until_signalled(helper: Helper, path: Path, group: str | None) -> None:
+    task = asyncio.ensure_future(serve(helper, path, group))
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        loop.add_signal_handler(sig, task.cancel)
+    with contextlib.suppress(asyncio.CancelledError):
+        await task
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -578,7 +600,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     helper = Helper(Roots(), set(a.allow_uid), gids)
     with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(serve(helper, Path(a.socket), a.group))
+        asyncio.run(_serve_until_signalled(helper, Path(a.socket), a.group))
     return 0
 
 

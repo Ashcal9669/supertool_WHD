@@ -38,22 +38,3 @@ class HelperError(Exception):
     def __init__(self, code: str, msg: str) -> None:
         super().__init__(msg)
         self.code = code
-
-
-# Tracepoint groups WHD inspects for wireless/bus diagnostics. Shared by discovery, the mt76 module
-# and `whd capture-fixture` so recorded helper data matches live requests exactly.
-TRACE_GROUPS = [
-    "mt76",
-    "mt792x",
-    "mt7925",
-    "mt7921",
-    "mac80211",
-    "cfg80211",
-    "pci",
-    "xhci-hcd",
-    "usbcore",
-    "iwlwifi",
-    "ath11k",
-    "ath12k",
-    "rtw89",
-]

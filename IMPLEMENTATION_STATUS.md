@@ -63,7 +63,15 @@ tested, and verified as described in the Evidence column.
 | Restart persistence (live) | events retained, signed session valid after restart, discovery history grew |
 | Demo/live isolation | live DB 303 events / 0 demo; demo DB 2285 events / all demo |
 | Wireless state before/after full test cycle | `iw dev`, `iw reg`, link state, driver debugfs settings, runtime PM: identical (diff empty); tracefs instances empty |
-| Driver trees | `~/mt76`, `~/mt76-mlo-build`: 0 files modified since start. `t2lm` worktree is being written by other concurrent MLO test runs; WHD has no code path that writes there |
+| Driver trees | no driver source tree was modified by WHD or by this build; WHD has no code path that writes to one |
 
 Not verified (hardware-dependent): associated-station telemetry / MLO links on real hardware (no adapter associated), real MCU
 timeouts, PCIe error/link-retrain events, all USB behavior and usbmon, TID-to-link from real traffic, macOS/Windows browsers.
+
+Bus safety (GitHub issue #1): `mt76/napi_threaded` oopses the kernel on USB (before 7.3) and SDIO, so it is PCIe-only
+(`policy.BUS_ONLY`, fail closed on unknown bus). Every other readable mt76/mt792x/mt7925 debugfs file was then audited
+in one mt76 tree (core `debugfs.c`, `mt792x_debugfs.c`, `mt7925/debugfs.c`): each handler only formats fields embedded in the
+device structs or skips NULL queues, so none dereferences bus-specific state. That audit covers that tree only; other kernel
+versions can differ, and the optional MLO nodes were reviewed separately. Files not on the allowlist are never read.
+USB/SDIO reads are still unverified on real hardware.
+A device can register several PHYs: the poller samples all of them, and the mt76 tab/API take a `phy` selector.

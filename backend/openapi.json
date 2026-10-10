@@ -8565,6 +8565,22 @@
        "title": "Refresh",
        "type": "boolean"
       }
+     },
+     {
+      "in": "query",
+      "name": "phy",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phy"
+      }
      }
     ],
     "responses": {
@@ -8613,6 +8629,22 @@
        "default": false,
        "title": "Wake",
        "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "phy",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phy"
       }
      }
     ],

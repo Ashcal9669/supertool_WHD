@@ -3715,6 +3715,7 @@ export interface operations {
         parameters: {
             query?: {
                 refresh?: boolean;
+                phy?: string | null;
             };
             header?: never;
             path: {
@@ -3748,6 +3749,7 @@ export interface operations {
         parameters: {
             query?: {
                 wake?: boolean;
+                phy?: string | null;
             };
             header?: never;
             path: {

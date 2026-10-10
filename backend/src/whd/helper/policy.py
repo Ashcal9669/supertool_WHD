@@ -16,11 +16,10 @@ Paths are relative to /sys/kernel/debug/ieee80211/<phy>/. Entries not listed her
 listed by `debugfs_list` but cannot be read. `mmio` and `mcu` reads require the caller to
 pass `allow=["mmio"|"mcu"]`, which the WHD UI only does after an explicit user confirmation.
 
-Sources reviewed (2026-10-09):
-  ~/mt76/debugfs.c, ~/mt76/mt792x_debugfs.c, ~/mt76/mt7925/debugfs.c (upstream-equivalent)
-  ~/.config/superpowers/worktrees/mt76/mt7927-t2lm-emlsr-prototype/mt7925/debugfs.c (custom MLO nodes)
-A driver build with different handlers can change these semantics; the classification is
-recorded alongside every read so the UI shows what was assumed.
+Tiers were assigned by reviewing the read handlers of the mt76 debugfs files (mt76 core, mt792x, mt7925, plus
+the optional MLO nodes some builds add) on a PCIe adapter. That review did NOT cover USB or SDIO, where a
+handler can touch state that was never allocated (see BUS_ONLY below). A driver build with different handlers
+can change these semantics; the classification is recorded alongside every read so the UI shows what was assumed.
 """
 
 from __future__ import annotations
@@ -134,10 +133,19 @@ MAC80211_POLICY += [
     for f in _STA_FILES
 ]
 
+# Reads that are only safe on some buses. mt76 allocates the netdev behind napi_threaded only for DMA devices
+# (and USB only on newer kernels), so reading it oopses the kernel on USB before 7.3 and on SDIO.
+# Fail closed: an unknown bus is treated as unsafe.
+BUS_ONLY: dict[str, tuple[str, ...]] = {
+    "mt76/napi_threaded": ("pci",),
+}
+
 MAX_READ = 256 * 1024
 
 
-def classify(relpath: str) -> tuple[Tier | None, str]:
+def classify(relpath: str, bus: str | None = None) -> tuple[Tier | None, str]:
+    if relpath in BUS_ONLY and bus not in BUS_ONLY[relpath]:
+        return "never", f"read oopses the kernel on this bus ({bus or 'unknown'})"
     for pat, tier, desc in MT76_POLICY + MAC80211_POLICY:
         if fnmatch.fnmatchcase(relpath, pat):
             return tier, desc

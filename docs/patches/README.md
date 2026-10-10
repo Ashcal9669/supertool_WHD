@@ -18,7 +18,7 @@ Without this patch, command rate, latency, and the command that preceded a timeo
 | `mt76:mcu_send` | wiphy, cmd, seq, len, wait_resp, retry | after every `mcu_skb_send_msg()` (including retries) |
 | `mt76:mcu_resp` | wiphy, cmd, seq, ret, timeout, latency_us | after `mcu_parse_response()` for commands that wait for a response |
 
-**Base:** `~/mt76` at commit `55b18808` (committed state; the working tree's uncommitted changes were not used).
+**Base:** an mt76 tree at commit `55b18808` (committed state; the working tree's uncommitted changes were not used).
 
 **Validation performed by WHD's build (2026-10-09):** the patch was applied to a scratch copy of the tree
 (`git archive HEAD`) and `mcu.o` and `trace.o` were compiled against
@@ -32,6 +32,6 @@ command/response pairs with latencies from them. Nothing in WHD assumes they exi
 **Applying it yourself (manual, optional):**
 
 ```bash
-cd ~/mt76              # your tree; review the diff first
+cd /path/to/your/mt76-tree   # review the diff first
 patch -p1 --dry-run < docs/patches/0001-mt76-trace-mcu-command-lifecycle.diff
 ```
