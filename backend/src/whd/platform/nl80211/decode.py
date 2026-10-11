@@ -621,6 +621,17 @@ def decode_rate(a: Attrs | None) -> RateInfo | None:
     return r
 
 
+def _dbm(v: int | None) -> int | None:
+    """A received signal level is negative dBm. Drivers that do not fill the field leave the kernel's zero, which
+    must read as "not reported", not as 0 dBm."""
+    return v if v is not None and v < 0 else None
+
+
+def _dbm_chains(values: Iterable[int]) -> list[int]:
+    vals = list(values)
+    return vals if any(v < 0 for v in vals) else []
+
+
 def _sta_info(si: Attrs, s: Station | StationLink) -> None:
     def u(attr: int) -> int | None:
         return si.u32(attr)
@@ -633,19 +644,19 @@ def _sta_info(si: Attrs, s: Station | StationLink) -> None:
         s.rx_drop_misc = si.u64(C.NL80211_STA_INFO_RX_DROP_MISC)
         s.beacon_loss = u(C.NL80211_STA_INFO_BEACON_LOSS)
         s.beacon_rx = si.u64(C.NL80211_STA_INFO_BEACON_RX)
-        s.beacon_signal_avg_dbm = si.s8(C.NL80211_STA_INFO_BEACON_SIGNAL_AVG)
-        s.signal_avg_dbm = si.s8(C.NL80211_STA_INFO_SIGNAL_AVG)
-        s.ack_signal_dbm = si.s8(C.NL80211_STA_INFO_ACK_SIGNAL)
+        s.beacon_signal_avg_dbm = _dbm(si.s8(C.NL80211_STA_INFO_BEACON_SIGNAL_AVG))
+        s.signal_avg_dbm = _dbm(si.s8(C.NL80211_STA_INFO_SIGNAL_AVG))
+        s.ack_signal_dbm = _dbm(si.s8(C.NL80211_STA_INFO_ACK_SIGNAL))
         s.fcs_errors = u(C.NL80211_STA_INFO_FCS_ERROR_COUNT)
         s.rx_duration_us = si.u64(C.NL80211_STA_INFO_RX_DURATION)
         s.tx_duration_us = si.u64(C.NL80211_STA_INFO_TX_DURATION)
         s.assoc_at_boottime_ns = si.u64(C.NL80211_STA_INFO_ASSOC_AT_BOOTTIME)
         cs = si.nested(C.NL80211_STA_INFO_CHAIN_SIGNAL)
         if cs:
-            s.chain_signal_dbm = [struct.unpack("=b", p[:1])[0] for _, p in cs.items]
+            s.chain_signal_dbm = _dbm_chains(struct.unpack("=b", p[:1])[0] for _, p in cs.items)
         csa = si.nested(C.NL80211_STA_INFO_CHAIN_SIGNAL_AVG)
         if csa:
-            s.chain_signal_avg_dbm = [struct.unpack("=b", p[:1])[0] for _, p in csa.items]
+            s.chain_signal_avg_dbm = _dbm_chains(struct.unpack("=b", p[:1])[0] for _, p in csa.items)
         fl = si.get(C.NL80211_STA_INFO_STA_FLAGS)
         if fl is not None and len(fl) >= 8:
             mask, setv = struct.unpack_from("=II", fl)
@@ -658,7 +669,7 @@ def _sta_info(si: Attrs, s: Station | StationLink) -> None:
     s.tx_bytes = si.u64(C.NL80211_STA_INFO_TX_BYTES64) or u(C.NL80211_STA_INFO_TX_BYTES)
     s.tx_retries = u(C.NL80211_STA_INFO_TX_RETRIES)
     s.tx_failed = u(C.NL80211_STA_INFO_TX_FAILED)
-    s.signal_dbm = si.s8(C.NL80211_STA_INFO_SIGNAL)
+    s.signal_dbm = _dbm(si.s8(C.NL80211_STA_INFO_SIGNAL))
     s.tx_rate = decode_rate(si.nested(C.NL80211_STA_INFO_TX_BITRATE))
     s.rx_rate = decode_rate(si.nested(C.NL80211_STA_INFO_RX_BITRATE))
 

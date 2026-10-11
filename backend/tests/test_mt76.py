@@ -212,3 +212,49 @@ async def test_mt76_api(client: httpx.AsyncClient) -> None:
     body = await client.get(f"/api/v1/patches/{patches[0]['id']}")
     assert "mcu_send" in body.text and body.status_code == 200
     assert (await client.get("/api/v1/devices/nope/mt76/instrumentation")).status_code == 404
+
+
+async def test_raw_viewer_lists_and_reads_by_tier(client: httpx.AsyncClient) -> None:
+    listing = (await client.get(f"/api/v1/devices/{DEV}/mt76/raw-files")).json()
+    tiers = {f["path"]: f["tier"] for f in listing["files"]}
+    assert listing["phy"] and "mt76/xmit-queues" in tiers
+    r = await client.get(f"/api/v1/devices/{DEV}/mt76/raw", params={"path": "mt76/xmit-queues"})
+    assert r.status_code == 200 and r.json()["text"] and r.json()["read_at_boottime_ns"] > 0
+    assert (await client.get(f"/api/v1/devices/{DEV}/mt76/raw", params={"path": "nope"})).status_code == 404
+    by_tier = {t: p for p, t in tiers.items()}
+    for blocked in ("mmio", "mcu", "never"):
+        if blocked in by_tier:
+            r = await client.get(f"/api/v1/devices/{DEV}/mt76/raw", params={"path": by_tier[blocked]})
+            assert r.status_code == 403, blocked
+    if "wakes_device" in by_tier:
+        p = by_tier["wakes_device"]
+        assert (await client.get(f"/api/v1/devices/{DEV}/mt76/raw", params={"path": p})).status_code == 409
+        r = await client.get(f"/api/v1/devices/{DEV}/mt76/raw", params={"path": p, "wake": "true"})
+        assert r.status_code == 200
+
+
+def _coverage_for(mlo: bool) -> dict[str, mt76.CoverageItem]:
+    from whd.model.device import Device
+    from whd.model.wireless import Wiphy
+
+    dev = Device(id="x", bus="pci", sysfs_path="/x", title="x", driver="mt7921e", module="mt7921e")
+    w = Wiphy(index=0, name="phy0")
+    w.mlo_support = mlo
+    dev.wiphys = [w]
+    tps = [
+        mt76.TracepointInfo(group="mt76", name="mlo_tx_select"),
+        mt76.TracepointInfo(group="mt76", name="mac_txdone"),
+    ]
+    return {i.id: i for i in mt76.build_coverage(dev, tps, [], True, True)}
+
+
+def test_mlo_categories_follow_the_adapters_own_capability() -> None:
+    plain = _coverage_for(False)
+    for cid in mt76.MLO_ONLY_CATEGORIES:
+        assert plain[cid].status == "not_applicable" and not plain[cid].sources
+    # a category every adapter has is still judged, and a multi-link tracepoint is not counted for it
+    assert plain["txrx_queues"].status != "not_applicable"
+    assert not any("mlo" in s.name.lower() for i in plain.values() for s in i.sources)
+    multi = _coverage_for(True)
+    assert all(multi[cid].status != "not_applicable" for cid in mt76.MLO_ONLY_CATEGORIES)
+    assert any(s.name == "mt76:mlo_tx_select" and s.found for s in multi["tx_selection"].sources)

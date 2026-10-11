@@ -266,3 +266,89 @@ async def test_analyze_api_and_llm_optional(client: httpx.AsyncClient) -> None:
         await client.post("/api/v1/diagnostics/analyze", json={"capture_id": "cap-none"})
     ).status_code == 404
     _ = asyncio
+
+
+def _teardown(t0: float, extra: list[Event] | None = None) -> list[Event]:
+    evs = [
+        ev(t0, "nl80211.del_interface", "warning", "netdev", "del interface"),
+        ev(t0 + 0.05, "uevent.pci.unbind", "warning", "driver_state", "unbind pci"),
+        ev(t0 + 0.2, "nl80211.del_wiphy", "warning", "phy", "del wiphy"),
+        ev(t0 + 3, "uevent.pci.bind", "notice", "driver_state", "bind pci"),
+    ]
+    return sorted([*evs, *(extra or [])], key=lambda e: e.ts_boottime_ns)
+
+
+def test_unbind_rebind_without_fault_evidence_is_labelled_not_hidden() -> None:
+    rep = engine.analyze(_teardown(100.0), devices(), helper_ok=True)
+    assert len(rep.incidents) == 1
+    inc = rep.incidents[0]
+    assert inc.administrative == "driver_rebind" and inc.administrative_note
+    assert "no reset" in inc.administrative_note and "check who triggered it" in inc.administrative_note
+    assert any("labelled as driver rebind/teardown" in o.text for o in rep.observations)
+
+
+def test_unbind_with_fault_evidence_is_not_labelled() -> None:
+    mcu = ev(100.1, "firmware.mcu_timeout", "error", "firmware", "MCU command timed out")
+    rep = engine.analyze(_teardown(100.0, [mcu]), devices(), helper_ok=True)
+    assert rep.incidents[0].administrative is None
+    aer = ev(100.1, "pci.aer.received", "error", "pci_error", "AER")
+    rep = engine.analyze(_teardown(100.0, [aer]), devices(), helper_ok=True)
+    assert rep.incidents[0].administrative is None
+
+
+def test_auth_timeouts_are_not_blamed_on_the_ap_and_rebind_is_weighed() -> None:
+    evs = _teardown(
+        100.0,
+        [
+            ev(104.0, "nl80211.authenticate", "error", "association", "authenticate", timed_out=True),
+            ev(106.0, "assoc.timeout", "error", "association", "authentication with x timed out"),
+        ],
+    )
+    rep = engine.analyze(evs, devices(), helper_ok=True)
+    ids = {h.id: h for h in rep.hypotheses}
+    assert "H-ap-initiated" not in ids
+    h = ids["H-assoc-no-response"]
+    assert h.contradicting and "after the device was (re)bound" in next(
+        o.text for o in rep.observations if o.id == h.contradicting[0]
+    )
+    assert "AP-side logs" in " ".join(h.unknowns)
+
+
+def test_peer_initiated_disconnect_still_gives_the_ap_hypothesis() -> None:
+    evs = [ev(50.0, "assoc.deauth_by_ap", "warning", "association", "AP deauthenticated", reason="4")]
+    rep = engine.analyze(evs, devices(), helper_ok=True)
+    assert {h.id for h in rep.hypotheses} >= {"H-ap-initiated"}
+    assert "H-assoc-no-response" not in {h.id for h in rep.hypotheses}
+
+
+def test_live_flag_and_checks_are_carried_into_the_report() -> None:
+    from whd.diagnostics.livecheck import collect
+    from whd.diagnostics.models import LiveCheck
+
+    chk = [LiveCheck(id="a", label="x", value="y", status="ok", source="s")]
+    rep = engine.analyze([], devices(), live=True, live_checks=chk)
+    assert rep.scope.live is True and rep.live_checks == chk and rep.scope.newest_event_age_s is None
+    assert engine.analyze([], devices()).scope.live is False
+    host = fixture_host("mt7927-pcie-host")
+    checks = collect(devices(), host, helper_ok=True)
+    assert any(c.source.startswith("sysfs") for c in checks) and any(
+        c.id.endswith(":binding") for c in checks
+    )
+    assert any(c.id.endswith(":tx_rings") for c in checks)
+    assert all(c.status in ("ok", "attention", "info", "unavailable") for c in checks)
+
+
+def test_teardown_label_follows_the_bus_of_the_device_not_pci() -> None:
+    for bus in ("usb", "sdio"):
+        evs = [
+            ev(10.0, f"uevent.{bus}.unbind", "warning", "driver_state", "unbind"),
+            ev(10.1, "nl80211.del_wiphy", "warning", "phy", "del wiphy"),
+            ev(13.0, f"uevent.{bus}.bind", "notice", "driver_state", "bind"),
+        ]
+        inc = engine.analyze(evs, devices(), helper_ok=True).incidents[0]
+        assert inc.administrative == "driver_rebind", bus
+    unplug = [
+        ev(10.0, "usb.disconnect", "warning", "usb_error", "device disconnected"),
+        ev(10.1, "uevent.usb.unbind", "warning", "driver_state", "unbind"),
+    ]
+    assert engine.analyze(unplug, devices(), helper_ok=True).incidents[0].administrative is None

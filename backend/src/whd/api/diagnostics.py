@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 
 from whd.api.deps import get_state, require_auth
 from whd.clock import boottime_ns
-from whd.diagnostics import engine
+from whd.diagnostics import engine, livecheck
 from whd.diagnostics.models import DiagnosticReport
 from whd.diagnostics.ollama import OllamaClient, OllamaStatus, Summary
 from whd.drivers import mt76
@@ -104,6 +104,12 @@ async def analyze(body: AnalyzeBody, actor: str = Auth, st: AppState = State) ->
         cov = await _coverage(st, [d.id for d in devices])
         helper_ok = bool(st.helper and st.helper.available)
         demo = st.settings.mode == "demo"
+    live_checks = []
+    if not body.capture_id and st.settings.mode != "demo":
+        # a live window gets current readings beside the history; stored captures and demo data never do
+        fresh = await st.inventory.get(force=True)
+        live_devices = [d for d in fresh.devices if body.device_id in (None, d.id)]
+        live_checks = await asyncio.to_thread(livecheck.collect, live_devices, st.host, helper_ok)
     rep = await asyncio.to_thread(
         engine.analyze,
         events,
@@ -115,6 +121,8 @@ async def analyze(body: AnalyzeBody, actor: str = Auth, st: AppState = State) ->
         capture_id=body.capture_id,
         device_filter=body.device_id,
         imported=imported,
+        live=not body.capture_id and not demo,
+        live_checks=live_checks,
     )
     reports: dict[str, DiagnosticReport] = st.extra.setdefault("diag_reports", {})
     reports[rep.report_id] = rep

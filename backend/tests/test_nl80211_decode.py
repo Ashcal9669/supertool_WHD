@@ -54,3 +54,10 @@ def test_synthetic_usb_station() -> None:
     assert s.signal_dbm == -52 and s.tx_rate and s.tx_rate.mode == "HE" and s.tx_rate.width_mhz == 80
     assert s.chain_signal_dbm == [-54, -55]
     assert s.flags.get("AUTHORIZED") is True
+
+
+def test_zero_signal_means_not_reported() -> None:
+    from whd.platform.nl80211.decode import _dbm, _dbm_chains
+
+    assert _dbm(0) is None and _dbm(None) is None and _dbm(-52) == -52
+    assert _dbm_chains([0, 0]) == [] and _dbm_chains([-54, 0]) == [-54, 0]

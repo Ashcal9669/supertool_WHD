@@ -48,6 +48,12 @@ class Incident(Model):
     )
     earliest_layers: list[Layer] = Field(description="layers with a significant event in the first second")
     kinds: dict[str, int]
+    administrative: Literal["driver_rebind", "teardown"] | None = Field(
+        default=None,
+        description="set when the incident is a driver unbind/rebind or interface teardown with no fault evidence "
+        "(reset, MCU timeout, AER, link down, firmware/probe failure) in it; a label for the reader, not a verdict",
+    )
+    administrative_note: str | None = None
 
 
 class Pattern(Model):
@@ -111,6 +117,18 @@ class MissingInstrumentation(Model):
     proposal: str | None = None
 
 
+class LiveCheck(Model):
+    """One reading taken at analysis time, shown beside the historical claims so the report is not only a replay."""
+
+    id: str
+    label: str
+    value: str
+    status: Literal["ok", "attention", "info", "unavailable"]
+    source: str = Field(description="where the reading came from (sysfs path, helper verb, debugfs file)")
+    read_at_boottime_ns: int | None = None
+    detail: str | None = None
+
+
 class Scope(Model):
     device_ids: list[str]
     window_s: float | None
@@ -123,6 +141,12 @@ class Scope(Model):
     capture_id: str | None = None
     imported: bool = False
     unattributed_events: int = 0
+    live: bool = Field(
+        default=False, description="true when the window ends now on this host (not a stored capture)"
+    )
+    newest_event_age_s: float | None = Field(
+        default=None, description="age of the newest analyzed event when the report was generated (live only)"
+    )
 
 
 class DiagnosticReport(Model):
@@ -140,3 +164,4 @@ class DiagnosticReport(Model):
     missing_instrumentation: list[MissingInstrumentation]
     follow_ups: list[FollowUp]
     limits: list[str]
+    live_checks: list[LiveCheck] = Field(default_factory=list)

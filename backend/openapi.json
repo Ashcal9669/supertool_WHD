@@ -868,7 +868,8 @@
        "available",
        "partial",
        "log_only",
-       "missing"
+       "missing",
+       "not_applicable"
       ],
       "title": "Status",
       "type": "string"
@@ -1580,6 +1581,13 @@
       "title": "Limits",
       "type": "array"
      },
+     "live_checks": {
+      "items": {
+       "$ref": "#/components/schemas/LiveCheck"
+      },
+      "title": "Live Checks",
+      "type": "array"
+     },
      "missing_instrumentation": {
       "items": {
        "$ref": "#/components/schemas/MissingInstrumentation"
@@ -1627,7 +1635,8 @@
      "hypotheses",
      "missing_instrumentation",
      "follow_ups",
-     "limits"
+     "limits",
+     "live_checks"
     ],
     "title": "DiagnosticReport",
     "type": "object"
@@ -2371,6 +2380,33 @@
    },
    "Incident": {
     "properties": {
+     "administrative": {
+      "anyOf": [
+       {
+        "enum": [
+         "driver_rebind",
+         "teardown"
+        ],
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "set when the incident is a driver unbind/rebind or interface teardown with no fault evidence (reset, MCU timeout, AER, link down, firmware/probe failure) in it; a label for the reader, not a verdict",
+      "title": "Administrative"
+     },
+     "administrative_note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Administrative Note"
+     },
      "device_ids": {
       "items": {
        "type": "string"
@@ -2458,7 +2494,9 @@
      "layers",
      "sequence",
      "earliest_layers",
-     "kinds"
+     "kinds",
+     "administrative",
+     "administrative_note"
     ],
     "title": "Incident",
     "type": "object"
@@ -2820,6 +2858,71 @@
      "last_tx_rate_hex"
     ],
     "title": "LinkActivity",
+    "type": "object"
+   },
+   "LiveCheck": {
+    "description": "One reading taken at analysis time, shown beside the historical claims so the report is not only a replay.",
+    "properties": {
+     "detail": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "label": {
+      "title": "Label",
+      "type": "string"
+     },
+     "read_at_boottime_ns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Read At Boottime Ns"
+     },
+     "source": {
+      "description": "where the reading came from (sysfs path, helper verb, debugfs file)",
+      "title": "Source",
+      "type": "string"
+     },
+     "status": {
+      "enum": [
+       "ok",
+       "attention",
+       "info",
+       "unavailable"
+      ],
+      "title": "Status",
+      "type": "string"
+     },
+     "value": {
+      "title": "Value",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "label",
+     "value",
+     "status",
+     "source",
+     "read_at_boottime_ns",
+     "detail"
+    ],
+    "title": "LiveCheck",
     "type": "object"
    },
    "LiveInterface": {
@@ -4521,6 +4624,173 @@
     "title": "RateInfo",
     "type": "object"
    },
+   "RawFile": {
+    "properties": {
+     "mode": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mode"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "policy": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Policy"
+     },
+     "tier": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tier"
+     }
+    },
+    "required": [
+     "path",
+     "tier"
+    ],
+    "title": "RawFile",
+    "type": "object"
+   },
+   "RawListing": {
+    "properties": {
+     "device_id": {
+      "title": "Device Id",
+      "type": "string"
+     },
+     "files": {
+      "items": {
+       "$ref": "#/components/schemas/RawFile"
+      },
+      "title": "Files",
+      "type": "array"
+     },
+     "phy": {
+      "title": "Phy",
+      "type": "string"
+     },
+     "truncated": {
+      "title": "Truncated",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "device_id",
+     "phy",
+     "truncated",
+     "files"
+    ],
+    "title": "RawListing",
+    "type": "object"
+   },
+   "RawRead": {
+    "properties": {
+     "binary": {
+      "default": false,
+      "title": "Binary",
+      "type": "boolean"
+     },
+     "bytes": {
+      "title": "Bytes",
+      "type": "integer"
+     },
+     "device_id": {
+      "title": "Device Id",
+      "type": "string"
+     },
+     "elapsed_ms": {
+      "title": "Elapsed Ms",
+      "type": "number"
+     },
+     "path": {
+      "title": "Path",
+      "type": "string"
+     },
+     "phy": {
+      "title": "Phy",
+      "type": "string"
+     },
+     "policy": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Policy"
+     },
+     "read_at_boottime_ns": {
+      "title": "Read At Boottime Ns",
+      "type": "integer"
+     },
+     "read_at_wall": {
+      "title": "Read At Wall",
+      "type": "number"
+     },
+     "text": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Text"
+     },
+     "tier": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tier"
+     },
+     "truncated": {
+      "title": "Truncated",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "device_id",
+     "phy",
+     "path",
+     "tier",
+     "policy",
+     "bytes",
+     "truncated",
+     "elapsed_ms",
+     "read_at_boottime_ns",
+     "read_at_wall",
+     "text"
+    ],
+    "title": "RawRead",
+    "type": "object"
+   },
    "ReadRecord": {
     "properties": {
      "bytes": {
@@ -5054,6 +5324,24 @@
       ],
       "title": "Last Ns"
      },
+     "live": {
+      "default": false,
+      "description": "true when the window ends now on this host (not a stored capture)",
+      "title": "Live",
+      "type": "boolean"
+     },
+     "newest_event_age_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "age of the newest analyzed event when the report was generated (live only)",
+      "title": "Newest Event Age S"
+     },
      "significant_event_count": {
       "title": "Significant Event Count",
       "type": "integer"
@@ -5093,7 +5381,9 @@
      "demo",
      "capture_id",
      "imported",
-     "unattributed_events"
+     "unattributed_events",
+     "live",
+     "newest_event_age_s"
     ],
     "title": "Scope",
     "type": "object"
@@ -8606,6 +8896,137 @@
      }
     },
     "summary": "Instrumentation"
+   }
+  },
+  "/api/v1/devices/{device_id}/mt76/raw": {
+   "get": {
+    "description": "The unmodified text of one debugfs file, with when it was read. Passive files are always readable; files that\nwake the chip need wake=true (and are audited); MMIO/MCU/never-tier files are refused here and by the helper.",
+    "operationId": "raw_read_api_v1_devices__device_id__mt76_raw_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "device_id",
+      "required": true,
+      "schema": {
+       "title": "Device Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "path",
+      "required": true,
+      "schema": {
+       "title": "Path",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "phy",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phy"
+      }
+     },
+     {
+      "in": "query",
+      "name": "wake",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Wake",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RawRead"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Raw Read"
+   }
+  },
+  "/api/v1/devices/{device_id}/mt76/raw-files": {
+   "get": {
+    "description": "Every file the driver exposes for this PHY, with the access tier the helper policy gives it. The list comes from\nthe running kernel, so a driver with other files shows those.",
+    "operationId": "raw_files_api_v1_devices__device_id__mt76_raw_files_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "device_id",
+      "required": true,
+      "schema": {
+       "title": "Device Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "phy",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phy"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RawListing"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Raw Files"
    }
   },
   "/api/v1/devices/{device_id}/mt76/snapshot": {

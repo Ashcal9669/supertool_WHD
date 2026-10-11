@@ -74,3 +74,17 @@ describe("topology layout", () => {
     expect(p.size).toBe(2);
   });
 });
+
+describe("stream filter guard", () => {
+  test("never lets another device's or an unattributed event through a device filter", async () => {
+    const { acceptsEvent } = await import("../hooks/eventStream");
+    const ev = (device_id: string | null, category = "mlo", severity = "debug") => ({ device_id, category, severity }) as never;
+    const f = { device_id: "dev-a", min_severity: "info" };
+    expect(acceptsEvent(f, ev("dev-a", "mlo", "info"))).toBe(true);
+    expect(acceptsEvent(f, ev("dev-b", "mlo", "info"))).toBe(false);
+    expect(acceptsEvent(f, ev(null, "mlo", "info"))).toBe(false);
+    expect(acceptsEvent(f, ev("dev-a", "mlo", "debug"))).toBe(false);
+    expect(acceptsEvent({}, ev(null))).toBe(true);
+    expect(acceptsEvent({ categories: ["scan"] }, ev("dev-a", "mlo", "info"))).toBe(false);
+  });
+});

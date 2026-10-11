@@ -9,6 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 
 from whd.api.deps import get_state, require_auth
 from whd.drivers import mt76
@@ -75,6 +76,116 @@ async def snapshot(
             actor, "mt76_snapshot_wake", {"device": device_id, "paths": [r.path for r in snap.reads]}
         )
     return snap
+
+
+class RawFile(BaseModel):
+    path: str
+    tier: str | None
+    policy: str | None = None
+    mode: str | None = None
+
+
+class RawListing(BaseModel):
+    device_id: str
+    phy: str
+    truncated: bool
+    files: list[RawFile]
+
+
+class RawRead(BaseModel):
+    device_id: str
+    phy: str
+    path: str
+    tier: str | None
+    policy: str | None
+    bytes: int
+    truncated: bool
+    elapsed_ms: float
+    read_at_boottime_ns: int
+    read_at_wall: float
+    text: str | None
+    binary: bool = False
+
+
+@router.get("/devices/{device_id}/mt76/raw-files", response_model=RawListing)
+async def raw_files(
+    device_id: str, phy: str | None = None, _: str = Auth, st: AppState = State
+) -> RawListing:
+    """Every file the driver exposes for this PHY, with the access tier the helper policy gives it. The list comes from
+    the running kernel, so a driver with other files shows those."""
+    dev = await _dev(st, device_id)
+    h = st.host.helper
+    if h is None or not h.available:
+        raise HTTPException(409, "whd-helper is not running; mt76 debugfs requires root")
+    chosen = mt76.pick_phy(dev, phy) or (dev.phys[0] if dev.phys else None)
+    if chosen is None:
+        raise HTTPException(409, "device has no registered PHY")
+    try:
+        res = await asyncio.to_thread(h.call, "debugfs_list", 10.0, phy=chosen)
+    except HelperError as e:
+        raise HTTPException(422 if e.code == "args" else 409, str(e)) from e
+    return RawListing(
+        device_id=device_id,
+        phy=chosen,
+        truncated=bool(res.get("truncated")),
+        files=[
+            RawFile(path=e["path"], tier=e.get("tier"), policy=e.get("policy"), mode=e.get("mode"))
+            for e in res["entries"]
+        ],
+    )
+
+
+@router.get("/devices/{device_id}/mt76/raw", response_model=RawRead)
+async def raw_read(
+    device_id: str,
+    path: str,
+    phy: str | None = None,
+    wake: bool = False,
+    actor: str = Auth,
+    st: AppState = State,
+) -> RawRead:
+    """The unmodified text of one debugfs file, with when it was read. Passive files are always readable; files that
+    wake the chip need wake=true (and are audited); MMIO/MCU/never-tier files are refused here and by the helper."""
+    dev = await _dev(st, device_id)
+    h = st.host.helper
+    if h is None or not h.available:
+        raise HTTPException(409, "whd-helper is not running; mt76 debugfs requires root")
+    chosen = mt76.pick_phy(dev, phy) or (dev.phys[0] if dev.phys else None)
+    if chosen is None:
+        raise HTTPException(409, "device has no registered PHY")
+    try:
+        listing = await asyncio.to_thread(h.call, "debugfs_list", 10.0, phy=chosen)
+        entry = next((e for e in listing["entries"] if e["path"] == path), None)
+        if entry is None:
+            raise HTTPException(404, "no such file for this PHY")
+        tier = entry.get("tier")
+        if tier == "wakes_device" and not wake:
+            raise HTTPException(
+                409, "reading this file wakes the chip from runtime PM; pass wake=true to allow it"
+            )
+        if tier not in ("passive", "wakes_device"):
+            raise HTTPException(
+                403, f"{path}: tier {tier} is not readable from the viewer ({entry.get('policy')})"
+            )
+        r = await asyncio.to_thread(h.call, "debugfs_read", 10.0, phy=chosen, path=path)
+    except HelperError as e:
+        raise HTTPException(422 if e.code == "args" else 409, str(e)) from e
+    if tier == "wakes_device":
+        st.store.audit(actor, "mt76_raw_read_wake", {"device": device_id, "phy": chosen, "path": path})
+    return RawRead(
+        device_id=device_id,
+        phy=chosen,
+        path=path,
+        tier=tier,
+        policy=r.get("policy"),
+        bytes=int(r["bytes"]),
+        truncated=bool(r.get("truncated")),
+        elapsed_ms=float(r["elapsed_ms"]),
+        read_at_boottime_ns=int(r["read_at_boottime_ns"]),
+        read_at_wall=time.time(),
+        text=r.get("text"),
+        binary=r.get("text") is None,
+    )
 
 
 @router.get("/devices/{device_id}/mt76/trace-aggregate", response_model=mt76.TraceAggregate)

@@ -19,9 +19,10 @@ import time
 import uuid
 from collections import Counter, defaultdict
 from itertools import pairwise
-from typing import Any
+from typing import Any, Literal
 
 from whd import __version__
+from whd.clock import boottime_ns
 from whd.diagnostics.models import (
     Correlation,
     DiagnosticReport,
@@ -30,6 +31,7 @@ from whd.diagnostics.models import (
     Incident,
     IncidentEvent,
     Layer,
+    LiveCheck,
     MissingInstrumentation,
     Observation,
     ObsKind,
@@ -67,8 +69,6 @@ SIGNIFICANT_PREFIXES = (
     "reset.",
     "firmware.init_done",
     "firmware.patch_load",
-    "uevent.pci.bind",
-    "uevent.pci.unbind",
     "uevent.usb",
     "netdev.state",
     "netdev.removed",
@@ -103,6 +103,21 @@ BUS_FAULT_KINDS = (
     "usb.overcurrent",
     "usb.speed_changed",
 )
+# An incident holding a teardown is a driver/interface going away; whether that was deliberate is judged by the
+# absence of fault evidence, never assumed. Bus-level bind/unbind events are named uevent.<bus>.<action> for whatever
+# bus the device is on (pci, usb, sdio, ...), so they are matched by action, not by a fixed bus.
+TEARDOWN_KINDS = ("uevent.module.remove", "nl80211.del_wiphy", "nl80211.del_interface", "netdev.removed")
+BIND_KINDS = ("uevent.module.add", "nl80211.new_wiphy", "firmware.init_done")
+FAULT_PREFIXES = (
+    "reset.",
+    "pci.aer.",
+    "firmware.mcu_timeout",
+    "firmware.load_error",
+    "firmware.file_missing",
+    "driver.probe_failed",
+    "driver.init_error",
+)
+REBIND_TIMEOUT_WINDOW_S = 30.0
 CLUSTER_GAP_S = 8.0
 CORRELATION_WINDOW_S = 6.0
 
@@ -121,7 +136,8 @@ def is_significant(e: Event) -> bool:
         return False
     if SEVERITY_RANK[e.severity] >= SEVERITY_RANK["warning"]:
         return True
-    return e.kind.startswith(SIGNIFICANT_PREFIXES)
+    # bus-level bind/unbind is named uevent.<bus>.<action> for whatever bus the adapter is on
+    return e.kind.startswith(SIGNIFICANT_PREFIXES) or _uevent_action(e.kind) in ("bind", "unbind")
 
 
 def _f(e: Event, key: str) -> str | None:
@@ -151,6 +167,49 @@ def _is_core(e: Event) -> bool:
     return SEVERITY_RANK[e.severity] >= SEVERITY_RANK["warning"] or e.kind.startswith("reset.")
 
 
+def _uevent_action(kind: str) -> str | None:
+    parts = kind.split(".")
+    return parts[2] if len(parts) == 3 and parts[0] == "uevent" else None
+
+
+def _is_teardown(e: Event) -> bool:
+    return e.kind.startswith(TEARDOWN_KINDS) or _uevent_action(e.kind) == "unbind"
+
+
+def _is_bind(e: Event) -> bool:
+    return e.kind.startswith(BIND_KINDS) or _uevent_action(e.kind) == "bind"
+
+
+def _is_fault(e: Event) -> bool:
+    return e.kind.startswith(FAULT_PREFIXES) or e.kind in BUS_FAULT_KINDS or _is_mcu_timeout(e)
+
+
+def classify_administrative(
+    evs: list[Event],
+) -> tuple[Literal["driver_rebind", "teardown"] | None, str | None]:
+    """Label an incident as a driver rebind / teardown when it contains the teardown and nothing that looks like a
+    fault. Reading only: the incident stays in the report, with the evidence for the label in the note."""
+    teardown = [e for e in evs if _is_teardown(e)]
+    if not teardown:
+        return None, None
+    faults = [e for e in evs if _is_fault(e)]
+    if faults:
+        return None, None
+    bound = any(_is_bind(e) for e in evs)
+    kinds = sorted({e.kind for e in teardown})
+    timeouts = [e for e in evs if (e.data or {}).get("timed_out") or e.kind == "assoc.timeout"]
+    note = (
+        f"Contains {', '.join(kinds)}"
+        + (" followed by a bind" if bound else "")
+        + "; no reset, MCU timeout, AER, link-down, USB or firmware/probe failure event is part of it, so it reads as "
+        "the driver or interface being removed on purpose (module reload, unbind, rfkill, interface delete)."
+    )
+    if timeouts:
+        note += f" {len(timeouts)} timeout event(s) in it happened while the device was re-initialising."
+    note += " A teardown WHD cannot attribute to a person or script could still hide a real fault; check who triggered it."
+    return ("driver_rebind" if bound else "teardown"), note
+
+
 def build_incident(idx: int, evs: list[Event]) -> Incident:
     """Incident timing is anchored on the fault evidence (warning+ or reset events). Routine state changes in the
     cluster (bind, association, firmware load) are kept for counts and context but never count as 'first observed'."""
@@ -173,6 +232,7 @@ def build_incident(idx: int, evs: list[Event]) -> Incident:
     ]
     earliest = [s.layer for s in seq if s.rel_s <= 1.0]
     sev = max(evs, key=lambda e: SEVERITY_RANK[e.severity]).severity
+    admin, admin_note = classify_administrative(evs)
     return Incident(
         id=f"I{idx}",
         device_ids=sorted({e.device_id for e in evs if e.device_id}),
@@ -185,6 +245,8 @@ def build_incident(idx: int, evs: list[Event]) -> Incident:
         sequence=seq,
         earliest_layers=earliest,
         kinds=dict(Counter(e.kind for e in evs)),
+        administrative=admin,
+        administrative_note=admin_note,
     )
 
 
@@ -417,6 +479,8 @@ def analyze(
     capture_id: str | None = None,
     device_filter: str | None = None,
     imported: bool = False,
+    live: bool = False,
+    live_checks: list[LiveCheck] | None = None,
 ) -> DiagnosticReport:
     events = sorted(events, key=lambda e: e.ts_boottime_ns)
     sig = [e for e in events if is_significant(e)]
@@ -764,11 +828,11 @@ def analyze(
                 )
             )
 
-    # H-ap-initiated
+    # H-ap-initiated: the peer said it ended the association (deauth/disassoc by AP, lost connection)
     ap = [
         e
         for e in events
-        if e.kind in ("assoc.deauth_by_ap", "assoc.disassoc_by_ap", "assoc.timeout", "assoc.connection_lost")
+        if e.kind in ("assoc.deauth_by_ap", "assoc.disassoc_by_ap", "assoc.connection_lost")
         or (
             e.kind in ("nl80211.disconnect", "nl80211.deauthenticate", "nl80211.disassociate")
             and (e.data or {}).get("by_ap")
@@ -810,6 +874,77 @@ def analyze(
                 unknowns=["AP-side logs are not available to WHD."],
                 follow_up_ids=["F-ap", "F-repeat"],
             )
+        )
+
+    # H-assoc-no-response: authentication/association attempts that timed out (no answer, either direction)
+    timeouts = [
+        e
+        for e in events
+        if e.kind == "assoc.timeout"
+        or (e.kind in ("nl80211.authenticate", "nl80211.associate") and (e.data or {}).get("timed_out"))
+    ]
+    if timeouts:
+        binds = [e for e in events if _is_bind(e)]
+        after_bind = [
+            e
+            for e in timeouts
+            if any(0 <= (e.ts_boottime_ns - b.ts_boottime_ns) / 1e9 <= REBIND_TIMEOUT_WINDOW_S for b in binds)
+        ]
+        # the kernel log and netlink both report one timed-out attempt; events within 2 s are the same attempt
+        attempts = 0
+        last_t: int | None = None
+        for e in timeouts:
+            if last_t is None or (e.ts_boottime_ns - last_t) / 1e9 > 2.0:
+                attempts += 1
+            last_t = e.ts_boottime_ns
+        o = obs.add(
+            "count",
+            f"{attempts} authentication/association attempt(s) timed out (no response after all retries); "
+            f"{len(timeouts)} event(s) report them, since the kernel log and netlink each report one.",
+            timeouts,
+        )
+        contra = (
+            [
+                obs.add(
+                    "timing",
+                    f"{len(after_bind)} of {len(timeouts)} timeout event(s) came within {REBIND_TIMEOUT_WINDOW_S:g}s after the "
+                    "device was (re)bound, while the host side was still initialising; that points at least as much at "
+                    "the local bring-up as at the AP.",
+                    after_bind,
+                )
+            ]
+            if after_bind
+            else []
+        )
+        hyps.append(
+            Hypothesis(
+                id="H-assoc-no-response",
+                title="Authentication/association got no answer",
+                statement="mac80211 gave up waiting for the peer. A missing answer can be the AP not replying, frames "
+                "not leaving the host (TX path/firmware not ready), or frames not being received; timeouts alone "
+                "cannot tell which.",
+                confidence="low",
+                failure_boundary="wireless link / AP or local TX path (undetermined)",
+                supporting=[o],
+                supporting_event_ids=[e.id for e in timeouts if e.id][:20],
+                contradicting=contra,
+                unknowns=[
+                    "Whether the request frame was transmitted (a monitor-mode capture or TX status would show it).",
+                    "AP-side logs are not available to WHD.",
+                ],
+                follow_up_ids=["F-ap", "F-repeat"],
+            )
+        )
+
+    admin = [i for i in incidents if i.administrative]
+    if admin:
+        obs.add(
+            "coverage",
+            f"{len(admin)} of {len(incidents)} incident(s) are labelled as driver rebind/teardown ("
+            + ", ".join(sorted(f"{i.id}: {i.administrative}" for i in admin[:6]))
+            + ("…" if len(admin) > 6 else "")
+            + "): they contain the removal and no reset, MCU timeout, AER, link-down, USB or firmware/probe "
+            "failure event. They are kept in the incident list; the label only says what the events contain.",
         )
 
     # H-pm-adjacent
@@ -955,6 +1090,10 @@ def analyze(
         capture_id=capture_id,
         unattributed_events=unattributed,
         imported=imported,
+        live=live,
+        newest_event_age_s=(
+            round((boottime_ns() - events[-1].ts_boottime_ns) / 1e9, 1) if live and events else None
+        ),
     )
     if not events:
         obs.add("count", "No events in the analyzed scope; nothing to correlate.")
@@ -973,6 +1112,7 @@ def analyze(
         missing_instrumentation=missing,
         follow_ups=fus,
         limits=limits,
+        live_checks=live_checks or [],
     )
 
 

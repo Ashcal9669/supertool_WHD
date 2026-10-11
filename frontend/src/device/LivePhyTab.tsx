@@ -29,6 +29,9 @@ function rateStr(r: Station["tx_rate"]) {
   return `${r.bitrate_mbps ?? "?"} Mb/s · ${r.mode}${r.mcs !== null && r.mcs !== undefined ? ` MCS${r.mcs}` : ""}${r.nss ? ` NSS${r.nss}` : ""}${r.width_mhz ? ` ${r.width_mhz}MHz` : ""}${r.gi ? ` GI ${r.gi}` : ""}`;
 }
 
+// nl80211 interface types that join a BSS; for every other type (monitor, AP, mesh, ...) "associated" has no meaning
+const JOINS_BSS = /^(STATION|P2P_CLIENT)$/i;
+
 export function LivePhyTab({ d }: { d: Device }) {
   const stream = useEventStream();
   const live = useQuery({ queryKey: ["wlive", d.id], queryFn: () => api<WirelessLive>(`/devices/${encodeURIComponent(d.id)}/wireless/live`), refetchInterval: 2000 });
@@ -45,6 +48,7 @@ export function LivePhyTab({ d }: { d: Device }) {
   if (live.isLoading) return <Loading what="Querying nl80211" />;
   if (live.error) return <ErrorBox error={live.error} />;
   const L = live.data!;
+  const deviceHasMlo = d.wiphys.some((w) => w.mlo_support);
   if (L.interfaces.length === 0) return <Empty>No wireless interfaces registered for this device.</Empty>;
   return (
     <div className="space-y-4">
@@ -52,20 +56,33 @@ export function LivePhyTab({ d }: { d: Device }) {
       {L.interfaces.map((li) => {
         const i = li.interface;
         const sta = li.stations[0];
+        const mode = (i.iftype ?? "unknown").toLowerCase();
+        const joins = !i.iftype || JOINS_BSS.test(i.iftype); // unknown type: keep showing the station view
+        const scans = events.filter((e) => e.kind.startsWith("nl80211.") && e.kind.includes("scan") && (!e.data || !("ifname" in e.data) || e.data.ifname === i.name));
         const staSeries = sta ? `station:${i.name}:${sta.mac}` : null;
         return (
           <div key={i.ifindex} className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-[14px] font-semibold">{i.name}</h3>
-              <Badge tone="accent">{i.iftype}</Badge>
-              <Badge tone={li.connected ? "ok" : "warn"}>{li.connected ? "associated" : "not associated"}</Badge>
+              <Badge tone="accent">{i.iftype ?? "unknown type"}</Badge>
+              {joins
+                ? <Badge tone={li.connected ? "ok" : "warn"}>{li.connected ? "associated" : "not associated"}</Badge>
+                : <Badge tone="dim" title="This interface type does not join a BSS, so there is no association state to report.">no association in {mode} mode</Badge>}
               {li.association_summary && <span className="mono text-[12px]">{li.association_summary}</span>}
               {Object.keys(li.errors).length > 0 && <Badge tone="warn" title={JSON.stringify(li.errors)}>{Object.keys(li.errors).length} query errors</Badge>}
             </div>
             <div className="grid gap-3 xl:grid-cols-2">
-              <Panel title="Connection state machine (event-driven)">
-                <ConnStateMachine events={events.filter((e) => !e.data || !("ifname" in e.data) || e.data.ifname === i.name)} snapshotConnected={li.connected} />
-              </Panel>
+              {joins ? (
+                <Panel title="Connection state machine (event-driven)">
+                  <ConnStateMachine events={events.filter((e) => !e.data || !("ifname" in e.data) || e.data.ifname === i.name)} snapshotConnected={li.connected} />
+                </Panel>
+              ) : (
+                <Panel title={`Interface mode: ${mode}`}>
+                  <p className="text-[12px]" data-testid="non-station-mode">This interface is in <b>{mode}</b> mode. It does not join a network, so the station connection states (authenticating, associated, authorized) do not apply and none is shown.</p>
+                  <KV rows={[["Channel", i.freq_mhz ? `${i.freq_mhz} MHz (ch ${i.channel}), width ${i.width ?? "?"}` : null], ["Scan requests seen", String(scans.filter((e) => e.kind.endsWith("trigger_scan") || e.kind.endsWith("start_sched_scan")).length)], ["Scan results seen", String(scans.filter((e) => e.kind.endsWith("new_scan_results")).length)]]} />
+                  <p className="mt-1 text-[11px] text-dim">Scan counts cover the events kept for this device, not all time. The kernel BSS cache is listed below.</p>
+                </Panel>
+              )}
               <Panel title="Operating parameters (nl80211 GET_INTERFACE)">
                 <KV rows={[
                   ["SSID", i.ssid], ["Frequency", i.freq_mhz ? `${i.freq_mhz} MHz (ch ${i.channel})` : null],
@@ -75,9 +92,11 @@ export function LivePhyTab({ d }: { d: Device }) {
                 ]} />
               </Panel>
             </div>
-            <Panel title="MLO links (activation / deactivation)">
-              <MloLinks iface={li} events={events} />
-            </Panel>
+            {(deviceHasMlo || i.mlo_links.length > 0) && (
+              <Panel title="MLO links (activation / deactivation)">
+                <MloLinks iface={li} events={events} />
+              </Panel>
+            )}
             {staSeries ? (
               <div className="grid gap-3 xl:grid-cols-2">
                 <TimeChart title="Signal (dBm)" series={staSeries} defs={SIGNAL} initial={init} unit="dBm" />
@@ -95,7 +114,7 @@ export function LivePhyTab({ d }: { d: Device }) {
             {li.stations.map((s) => (
               <Panel key={s.mac} title={`Station ${s.mac}`}>
                 <KV cols={2} rows={[
-                  ["signal / avg", `${s.signal_dbm ?? "?"} / ${s.signal_avg_dbm ?? "?"} dBm`], ["chains", s.chain_signal_dbm.join(", ")],
+                  ["signal / avg", s.signal_dbm == null && s.signal_avg_dbm == null ? "not reported by the driver" : `${s.signal_dbm ?? "n/a"} / ${s.signal_avg_dbm ?? "n/a"} dBm`], ["chains", s.chain_signal_dbm.join(", ")],
                   ["TX rate", rateStr(s.tx_rate)], ["RX rate", rateStr(s.rx_rate)],
                   ["tx retries / failed", `${s.tx_retries ?? "?"} / ${s.tx_failed ?? "?"}`], ["beacon loss / rx", `${s.beacon_loss ?? "?"} / ${s.beacon_rx ?? "?"}`],
                   ["connected", s.connected_s !== null && s.connected_s !== undefined ? `${s.connected_s} s` : null], ["inactive", s.inactive_ms !== null && s.inactive_ms !== undefined ? `${s.inactive_ms} ms` : null],

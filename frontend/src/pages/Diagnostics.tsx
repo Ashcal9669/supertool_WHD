@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, post } from "../api/client";
 import { useInventory } from "../api/hooks";
-import type { DiagnosticReport, Hypothesis, LlmSummary, OllamaStatus } from "../api/types";
+import type { DiagnosticReport, Hypothesis, LiveCheck, LlmSummary, OllamaStatus } from "../api/types";
 import { Badge, Button, Empty, ErrorBox, Panel } from "../components/ui";
 import { LAYER_LABEL } from "../lib/layers";
 import { bootSec } from "../lib/format";
@@ -37,6 +37,27 @@ function HypothesisCard({ h, rep }: { h: Hypothesis; rep: DiagnosticReport }) {
         {h.follow_up_ids.map((id) => <Badge key={id} tone="accent" title={fus.get(id)?.how}>{id}: {fus.get(id)?.title}</Badge>)}
       </div>
     </div>
+  );
+}
+
+const CHECK_TONE = { ok: "ok", attention: "warn", info: "dim", unavailable: "dim" } as const;
+
+/** What is true right now, read when the analysis ran. Absent for stored captures, imports and demo data. */
+function LiveChecks({ checks }: { checks: LiveCheck[] }) {
+  return (
+    <Panel title={`Live state check (${checks.length}) — read when this analysis ran`}>
+      <table className="w-full text-[12px]" data-testid="live-checks">
+        <thead className="text-left text-dim"><tr><th className="pr-2">status</th><th className="pr-2">reading</th><th className="pr-2">value now</th><th>source</th></tr></thead>
+        <tbody>{checks.map((c) => (
+          <tr key={c.id} className="border-t border-line/40 align-top">
+            <td className="pr-2"><Badge tone={CHECK_TONE[c.status]}>{c.status}</Badge></td>
+            <td className="pr-2">{c.label}</td>
+            <td className="mono pr-2">{c.value}{c.detail && <div className="text-[10px] text-dim">{c.detail}</div>}</td>
+            <td className="mono text-[10px] text-dim">{c.source}{c.read_at_boottime_ns != null && ` · ${bootSec(c.read_at_boottime_ns)}s`}</td>
+          </tr>))}</tbody>
+      </table>
+      <p className="mt-1 text-[11px] text-dim">These are single passive reads. They say what is true at this moment, which can differ from the history above; a ring that is busy once is not a stall.</p>
+    </Panel>
   );
 }
 
@@ -98,8 +119,9 @@ export function DiagnosticsPage() {
       {!rep ? <Empty>Run an analysis to see observations, incidents, recurring patterns, correlations, unconfirmed hypotheses, missing instrumentation and suggested tests.</Empty> : (
         <>
           <div role="note" className="rounded border border-line bg-panel2 p-2 text-[12px]">
-            <b>{rep.scope.demo ? "DEMO DATA · " : ""}{rep.scope.imported ? "IMPORTED CAPTURE (recorded elsewhere; not this host) · " : ""}</b>{rep.disclaimer} <span className="mono text-dim">report {rep.report_id} · {rep.scope.event_count} events ({rep.scope.significant_event_count} significant) · {rep.scope.unattributed_events} unattributed</span>
+            <b>{rep.scope.demo ? "DEMO DATA · " : ""}{rep.scope.live ? `LIVE ANALYSIS · window ends now${rep.scope.newest_event_age_s != null ? `, newest event ${rep.scope.newest_event_age_s}s old` : ", no events in window"} · ` : rep.scope.capture_id ? "STORED CAPTURE (a recording, not current state) · " : ""}{rep.scope.imported ? "IMPORTED CAPTURE (recorded elsewhere; not this host) · " : ""}</b>{rep.disclaimer} <span className="mono text-dim">report {rep.report_id} · {rep.scope.event_count} events ({rep.scope.significant_event_count} significant) · {rep.scope.unattributed_events} unattributed</span>
           </div>
+          {rep.live_checks.length > 0 && <LiveChecks checks={rep.live_checks} />}
           <Panel title={`Observations (${rep.observations.length}) — facts with evidence`}>
             <ul className="space-y-0.5 text-[12px]">{rep.observations.map((o) => <li key={o.id}><span className="mono text-ok">{o.id}</span> <span className="text-dim">[{o.kind}]</span> {o.text}{o.evidence_event_ids.length > 0 && <span className="mono text-[10px] text-dim"> events {o.evidence_event_ids.slice(0, 6).join(",")}</span>}</li>)}</ul>
           </Panel>
@@ -107,7 +129,9 @@ export function DiagnosticsPage() {
             <Panel title={`Incidents (${rep.incidents.length})`}>
               {rep.incidents.length === 0 ? <Empty>No incident (no warning+ events clustered).</Empty> : rep.incidents.map((i) => (
                 <div key={i.id} className="mb-3 rounded border border-line p-2">
-                  <div className="flex flex-wrap items-center gap-2"><Badge tone={i.severity === "critical" || i.severity === "error" ? "err" : "warn"}>{i.severity}</Badge><b>{i.id}</b><span className="text-dim">{i.duration_s}s · {i.event_count} events · starts {bootSec(i.start_ns)}s boottime</span></div>
+                  <div className="flex flex-wrap items-center gap-2"><Badge tone={i.severity === "critical" || i.severity === "error" ? "err" : "warn"}>{i.severity}</Badge><b>{i.id}</b><span className="text-dim">{i.duration_s}s · {i.event_count} events · starts {bootSec(i.start_ns)}s boottime</span>
+                    {i.administrative && <Badge tone="accent" title={i.administrative_note ?? ""}>{i.administrative === "driver_rebind" ? "driver rebind · no fault evidence" : "teardown · no fault evidence"}</Badge>}</div>
+                  {i.administrative_note && <p className="mt-1 text-[11px] text-dim" data-testid="incident-admin-note">{i.administrative_note}</p>}
                   <ol className="mono mt-1 text-[11px]">{i.sequence.map((s) => <li key={s.layer}><span className="text-dim">+{s.rel_s}s</span> <span className="text-accent">{LAYER_LABEL[s.layer]}</span> {s.kind}: {s.summary.slice(0, 70)}</li>)}</ol>
                   <p className="text-[10px] text-dim">first warning+/reset event per layer, in observed order (not causal)</p>
                 </div>))}

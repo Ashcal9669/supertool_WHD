@@ -7,11 +7,12 @@ import { Badge, Button, Empty, ErrorBox, KV, Loading, Panel, Tabs } from "../com
 import { useSeries } from "../hooks/useTelemetry";
 import { bootSec } from "../lib/format";
 import { ringDefs, ringKeys } from "../lib/rings";
+import { RawViewer } from "./RawViewer";
 
 // kernel wireless subsystems; every other tracepoint group belongs to the driver(s) found on this system
 const CORE_TP_GROUPS = ["mac80211", "mac80211_msg", "cfg80211"];
 
-const STATUS_TONE = { available: "ok", partial: "warn", log_only: "accent", missing: "err" } as const;
+const STATUS_TONE = { available: "ok", partial: "warn", log_only: "accent", missing: "err", not_applicable: "dim" } as const;
 
 const phyQs = (phy?: string) => (phy ? `phy=${encodeURIComponent(phy)}` : "");
 
@@ -174,7 +175,9 @@ interface Preset { name: string; events: string[] }
 function TraceControl({ d }: { d: Device }) {
   const qc = useQueryClient();
   const presets = useQuery({ queryKey: ["trace-presets"], queryFn: () => api<Preset[]>("/trace/presets"), staleTime: 60000 });
-  const PRESETS = presets.data ?? [];
+  const deviceHasMlo = d.wiphys.some((w) => w.mlo_support);
+  // presets list every tracepoint on the kernel; a multi-link-only preset is meaningless for an adapter without MLO
+  const PRESETS = (presets.data ?? []).filter((p) => deviceHasMlo || !p.events.every((e) => /\/mlo_/.test(e)));
   const [preset, setPreset] = useState(0);
   const [secs, setSecs] = useState(120);
   const status = useQuery({ queryKey: ["trace-status"], queryFn: () => api<{ active: boolean; lines: number; events: string[]; detail: string | null }>("/trace/status"), refetchInterval: 2000 });
@@ -186,7 +189,7 @@ function TraceControl({ d }: { d: Device }) {
   const lks = a ? [...new Set(a.tid_link.map((c) => c.link))].sort((x, y) => x - y) : [];
   const max = Math.max(1, ...(a?.tid_link.map((c) => c.count) ?? [1]));
   // per-link datapath panels need link-tagged tracepoints; show them only if this kernel has them or events exist
-  const hasLinkTrace = (presets.data ?? []).some((p) => p.events.some((e) => /\/mlo_/.test(e))) || !!(a && (a.tid_link.length || a.links.length || a.migrations.length));
+  const hasLinkTrace = (deviceHasMlo && (presets.data ?? []).some((p) => p.events.some((e) => /\/mlo_/.test(e)))) || !!(a && (a.tid_link.length || a.links.length || a.migrations.length));
   return (
     <div className="space-y-3">
       <Panel title="Trace session (isolated tracefs instance; WHD never touches the global trace buffer)">
@@ -241,14 +244,22 @@ function Tags({ d }: { d: Device }) {
 }
 
 export function Mt76Tab({ d }: { d: Device }) {
-  const [tab, setTab] = useState<"coverage" | "queues" | "station" | "trace" | "tags">("coverage");
+  const [tab, setTab] = useState<"coverage" | "queues" | "station" | "trace" | "tags" | "raw">("coverage");
   const [wake, setWake] = useState(false);
   const [phyPick, setPhyPick] = useState("");
   const phy = d.phys.includes(phyPick) ? phyPick : d.phys[0];
   const snap = useQuery({ queryKey: ["mt76-snap", d.id, phy, wake], queryFn: () => api<Mt76Snapshot>(`/devices/${encodeURIComponent(d.id)}/mt76/snapshot?wake=${wake}&${phyQs(phy)}`), refetchInterval: 5000, enabled: tab === "queues" || tab === "station", retry: false });
   return (
     <div className="space-y-3">
-      <Tabs value={tab} onChange={setTab} tabs={[{ id: "coverage", label: "Instrumentation coverage" }, { id: "queues", label: "Queues & rings" }, { id: "station", label: "Station / links" }, { id: "trace", label: "Datapath trace" }, { id: "tags", label: "Driver log tags" }]} />
+      <div className="panel flex flex-wrap items-center gap-x-3 gap-y-1 p-2 text-[12px]" data-testid="mt76-context">
+        <Badge tone="accent">{d.bus}</Badge><b>{d.title}</b>
+        <span className="mono text-dim">{d.id}</span>
+        <span>driver <span className="mono">{d.driver ?? "none"}</span></span>
+        {phy && <span>PHY <span className="mono">{phy}</span></span>}
+        <Badge tone={d.wiphys.some((w) => w.mlo_support) ? "ok" : "dim"}>{d.wiphys.some((w) => w.mlo_support) ? "MLO capable" : "no MLO"}</Badge>
+        <span className="text-[11px] text-dim">Everything in this tab is read from this adapter only.</span>
+      </div>
+      <Tabs value={tab} onChange={setTab} tabs={[{ id: "coverage", label: "Instrumentation coverage" }, { id: "queues", label: "Queues & rings" }, { id: "station", label: "Station / links" }, { id: "trace", label: "Datapath trace" }, { id: "tags", label: "Driver log tags" }, { id: "raw", label: "Raw files" }]} />
       {d.phys.length > 1 && (
         <label className="flex items-center gap-2 text-[12px] text-dim">PHY
           <select aria-label="phy" value={phy} onChange={(e) => setPhyPick(e.target.value)} className="rounded border border-line bg-bg px-1.5 py-1 text-fg">
@@ -271,6 +282,7 @@ export function Mt76Tab({ d }: { d: Device }) {
       {tab === "station" && (snap.data ? <Station snap={snap.data} /> : snap.isLoading ? <Loading /> : <Empty>Snapshot unavailable (see message above).</Empty>)}
       {tab === "trace" && <TraceControl d={d} />}
       {tab === "tags" && <Tags d={d} />}
+      {tab === "raw" && <RawViewer d={d} phy={phy} />}
     </div>
   );
 }

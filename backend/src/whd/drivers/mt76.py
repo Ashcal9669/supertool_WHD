@@ -38,7 +38,7 @@ def is_mt76(dev: Device) -> bool:
 
 SourceKind = Literal["tracepoint", "debugfs", "nl80211", "log", "sysfs", "none"]
 Role = Literal["primary", "secondary", "log"]
-Status = Literal["available", "partial", "log_only", "missing"]
+Status = Literal["available", "partial", "log_only", "missing", "not_applicable"]
 
 
 class CoverageSource(Model):
@@ -123,6 +123,23 @@ PROPOSAL_ONLY = {
 
 def _tp_index(tp: list[TracepointInfo]) -> set[str]:
     return {f"{t.group}/{t.name}" for t in tp}
+
+
+# Coverage categories that only exist for multi-link (MLO) operation. Whether a given adapter has MLO is read from
+# what its wiphy advertises (Wiphy.mlo_support), never from a chip name; an adapter without it gets these as
+# "not applicable" instead of a misleading "missing".
+MLO_ONLY_CATEGORIES = frozenset(
+    {"mlo_link_state", "per_link_telemetry", "tid_to_link", "tx_selection", "rx_activity", "link_migration"}
+)
+_MLO_NAMED = re.compile(r"(^|[:/ _.])mlo[_ ]|MLO_|MLO\b", re.I)
+
+
+def has_mlo(dev: Device) -> bool:
+    return any(w.mlo_support for w in dev.wiphys)
+
+
+def _is_mlo_source(s: CoverageSource) -> bool:
+    return bool(_MLO_NAMED.search(s.name))
 
 
 def build_coverage(
@@ -377,6 +394,21 @@ def build_coverage(
     ]
     items: list[CoverageItem] = []
     for iid, cat, summary, sources, missing_note, proposal in defs:
+        if not mlo:
+            if iid in MLO_ONLY_CATEGORIES:
+                items.append(
+                    CoverageItem(
+                        id=iid,
+                        category=cat,
+                        status="not_applicable",
+                        summary=summary,
+                        sources=[],
+                        missing="This adapter does not advertise multi-link operation (MLO), so this category does "
+                        "not apply to it.",
+                    )
+                )
+                continue
+            sources = [x for x in sources if not _is_mlo_source(x)]
         primary = [s for s in sources if s.role == "primary"]
         found_primary = [s for s in primary if s.found]
         found_secondary = [s for s in sources if s.role == "secondary" and s.found]
@@ -480,7 +512,11 @@ def discover_instrumentation(
         note = "whd-helper not running: tracefs/debugfs discovery needs root (start WHD from a terminal so it can ask for sudo)"
     items = build_coverage(dev, tp, dbg, helper_ok, journal_running)
     custom = sorted(
-        [f"tracepoint mt76:{t.name}" for t in tp if t.group == "mt76" and t.name.startswith("mlo_")]
+        (
+            [f"tracepoint mt76:{t.name}" for t in tp if t.group == "mt76" and t.name.startswith("mlo_")]
+            if has_mlo(dev)
+            else []
+        )
         + [
             f"debugfs {e.path}"
             for e in (dbg or [])

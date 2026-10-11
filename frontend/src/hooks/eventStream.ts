@@ -31,6 +31,17 @@ export interface StreamState {
   version: number;
 }
 
+const SEV_RANK: Record<string, number> = { debug: 0, info: 1, notice: 2, warning: 3, error: 4, critical: 5 };
+
+/** The same device/category/severity test the server applies. The socket can deliver unfiltered events while a new
+ * filter is still being applied (or after a reconnect), and a device page must never show another device's lines. */
+export function acceptsEvent(f: StreamFilter, e: WhdEvent): boolean {
+  if (f.device_id && e.device_id !== f.device_id) return false;
+  if (f.categories?.length && !f.categories.includes(e.category)) return false;
+  if (f.min_severity && (SEV_RANK[e.severity] ?? 0) < (SEV_RANK[f.min_severity] ?? 0)) return false;
+  return true;
+}
+
 const MAX_EVENTS = 5000;
 const MAX_POINTS = 900;
 const FLUSH_MS = 250;
@@ -110,6 +121,8 @@ class EventStream {
     this.ws = ws;
     ws.onopen = () => {
       this.retry = 0;
+      // the filter may have changed while the socket was still connecting; tell the server the current one
+      ws.send(JSON.stringify({ type: "filter", ...this.toParams(this.filter) }));
       this.emit({ connected: true, connecting: false });
     };
     ws.onmessage = (m) => this.handle(JSON.parse(m.data));
@@ -158,8 +171,10 @@ class EventStream {
         break;
       case "event": {
         const e = msg.event as WhdEvent;
-        this.buf.push(e);
-        this.scheduleFlush();
+        if (acceptsEvent(this.filter, e)) {
+          this.buf.push(e);
+          this.scheduleFlush();
+        }
         this.eventListeners.forEach((fn) => fn(e));
         break;
       }

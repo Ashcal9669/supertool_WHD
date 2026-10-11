@@ -54,6 +54,12 @@ test.describe("demo mode", () => {
     await expect(page.getByText("Coverage by diagnostic category")).toBeVisible();
     await page.getByRole("button", { name: "Datapath trace" }).click();
     await expect(page.getByText(/Observed TX link per TID/)).toBeVisible();
+    // deep lookup: the file list comes from the driver, passive files show the unmodified text and read time
+    await page.getByRole("button", { name: "Raw files" }).click();
+    await page.getByLabel("filter files").fill("xmit");
+    await page.getByRole("button", { name: /xmit-queues/ }).first().click();
+    await expect(page.getByTestId("raw-text")).toContainText(/queued|head/i);
+    await expect(page.getByTestId("raw-meta")).toContainText("boottime");
     done();
   });
 });

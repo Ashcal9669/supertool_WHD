@@ -335,6 +335,48 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/devices/{device_id}/mt76/raw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Raw Read
+         * @description The unmodified text of one debugfs file, with when it was read. Passive files are always readable; files that
+         *     wake the chip need wake=true (and are audited); MMIO/MCU/never-tier files are refused here and by the helper.
+         */
+        get: operations["raw_read_api_v1_devices__device_id__mt76_raw_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/devices/{device_id}/mt76/raw-files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Raw Files
+         * @description Every file the driver exposes for this PHY, with the access tier the helper policy gives it. The list comes from
+         *     the running kernel, so a driver with other files shows those.
+         */
+        get: operations["raw_files_api_v1_devices__device_id__mt76_raw_files_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/devices/{device_id}/mt76/snapshot": {
         parameters: {
             query?: never;
@@ -1173,7 +1215,7 @@ export interface components {
              * Status
              * @enum {string}
              */
-            status: "available" | "partial" | "log_only" | "missing";
+            status: "available" | "partial" | "log_only" | "missing" | "not_applicable";
             /** Summary */
             summary: string;
         };
@@ -1377,6 +1419,8 @@ export interface components {
             incidents: components["schemas"]["Incident"][];
             /** Limits */
             limits: string[];
+            /** Live Checks */
+            live_checks: components["schemas"]["LiveCheck"][];
             /** Missing Instrumentation */
             missing_instrumentation: components["schemas"]["MissingInstrumentation"][];
             /** Observations */
@@ -1632,6 +1676,13 @@ export interface components {
         };
         /** Incident */
         Incident: {
+            /**
+             * Administrative
+             * @description set when the incident is a driver unbind/rebind or interface teardown with no fault evidence (reset, MCU timeout, AER, link down, firmware/probe failure) in it; a label for the reader, not a verdict
+             */
+            administrative: ("driver_rebind" | "teardown") | null;
+            /** Administrative Note */
+            administrative_note: string | null;
             /** Device Ids */
             device_ids: string[];
             /** Duration S */
@@ -1807,6 +1858,32 @@ export interface components {
              * @default 0
              */
             txfree_failed: number;
+        };
+        /**
+         * LiveCheck
+         * @description One reading taken at analysis time, shown beside the historical claims so the report is not only a replay.
+         */
+        LiveCheck: {
+            /** Detail */
+            detail: string | null;
+            /** Id */
+            id: string;
+            /** Label */
+            label: string;
+            /** Read At Boottime Ns */
+            read_at_boottime_ns: number | null;
+            /**
+             * Source
+             * @description where the reading came from (sysfs path, helper verb, debugfs file)
+             */
+            source: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "attention" | "info" | "unavailable";
+            /** Value */
+            value: string;
         };
         /** LiveInterface */
         LiveInterface: {
@@ -2269,6 +2346,58 @@ export interface components {
             /** Width Mhz */
             width_mhz: number | null;
         };
+        /** RawFile */
+        RawFile: {
+            /** Mode */
+            mode?: string | null;
+            /** Path */
+            path: string;
+            /** Policy */
+            policy?: string | null;
+            /** Tier */
+            tier: string | null;
+        };
+        /** RawListing */
+        RawListing: {
+            /** Device Id */
+            device_id: string;
+            /** Files */
+            files: components["schemas"]["RawFile"][];
+            /** Phy */
+            phy: string;
+            /** Truncated */
+            truncated: boolean;
+        };
+        /** RawRead */
+        RawRead: {
+            /**
+             * Binary
+             * @default false
+             */
+            binary: boolean;
+            /** Bytes */
+            bytes: number;
+            /** Device Id */
+            device_id: string;
+            /** Elapsed Ms */
+            elapsed_ms: number;
+            /** Path */
+            path: string;
+            /** Phy */
+            phy: string;
+            /** Policy */
+            policy: string | null;
+            /** Read At Boottime Ns */
+            read_at_boottime_ns: number;
+            /** Read At Wall */
+            read_at_wall: number;
+            /** Text */
+            text: string | null;
+            /** Tier */
+            tier: string | null;
+            /** Truncated */
+            truncated: boolean;
+        };
         /** ReadRecord */
         ReadRecord: {
             /**
@@ -2408,6 +2537,17 @@ export interface components {
             imported: boolean;
             /** Last Ns */
             last_ns: number | null;
+            /**
+             * Live
+             * @description true when the window ends now on this host (not a stored capture)
+             * @default false
+             */
+            live: boolean;
+            /**
+             * Newest Event Age S
+             * @description age of the newest analyzed event when the report was generated (live only)
+             */
+            newest_event_age_s: number | null;
             /** Significant Event Count */
             significant_event_count: number;
             /** Sources */
@@ -3732,6 +3872,74 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Instrumentation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    raw_read_api_v1_devices__device_id__mt76_raw_get: {
+        parameters: {
+            query: {
+                path: string;
+                phy?: string | null;
+                wake?: boolean;
+            };
+            header?: never;
+            path: {
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RawRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    raw_files_api_v1_devices__device_id__mt76_raw_files_get: {
+        parameters: {
+            query?: {
+                phy?: string | null;
+            };
+            header?: never;
+            path: {
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RawListing"];
                 };
             };
             /** @description Validation Error */
