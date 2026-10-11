@@ -54,12 +54,17 @@ class Mt76Poller(Source):
                 for q in mt76.parse_xmit_queues(x):
                     n = q["name"]
                     vals[f"{n}.queued"] = q.get("queued")
-                    ci = q.get("cpu_idx")
-                    key = f"{phy}:x:{n}"
-                    if ci is not None:
+                    # the driver's producer index: cpu_idx where the debugfs file has it, otherwise head (stock
+                    # drivers print only queued/head/tail). The ring size is not printed, so a wrap (index went
+                    # down) is a gap in the series rather than a guess.
+                    field = "cpu_idx" if q.get("cpu_idx") is not None else "head"
+                    idx = q.get(field)
+                    key = f"{phy}:x:{n}:{field}"
+                    if idx is not None:
                         if key in self.prev_q:
-                            vals[f"{n}.submitted"] = ci - self.prev_q[key]
-                        self.prev_q[key] = ci
+                            delta = idx - self.prev_q[key]
+                            vals[f"{n}.submitted"] = delta if delta >= 0 else None
+                        self.prev_q[key] = idx
                 samples.append(
                     TelemetrySample(
                         ts_boottime_ns=now,

@@ -197,6 +197,27 @@ def test_poller_diffs(ctx: Ctx) -> None:
     assert "polling" in kinds["pci.link.changed"].explanation
 
 
+def test_xmit_rate_works_on_stock_drivers_without_cpu_idx(ctx: Ctx) -> None:
+    from whd.drivers.mt76_poller import Mt76Poller
+
+    reads = iter(
+        [
+            "WFDMA0:\tqueued=0 head=10 tail=10\nMCUWM:\tqueued=1 head=3 tail=2\n",
+            "WFDMA0:\tqueued=2 head=25 tail=23\nMCUWM:\tqueued=0 head=4 tail=4\n",
+            "WFDMA0:\tqueued=0 head=2 tail=2\nMCUWM:\tqueued=0 head=4 tail=4\n",  # WFDMA0 wrapped
+        ]
+    )
+    p = Mt76Poller(ctx)
+    p._targets = lambda: [("dev", "phy0")]  # type: ignore[method-assign]
+    p._read = lambda phy, path: next(reads) if path == "mt76/xmit-queues" else None  # type: ignore[method-assign]
+    series = [p.sample_once()[0][0].values for _ in range(3)]
+    assert "WFDMA0.submitted" not in series[0]  # nothing to diff against yet
+    assert series[1]["WFDMA0.submitted"] == 15 and series[1]["MCUWM.submitted"] == 1
+    assert (
+        series[2]["WFDMA0.submitted"] is None and series[2]["MCUWM.submitted"] == 0
+    )  # wrap: a gap, not a guess
+
+
 async def test_source_retries_when_helper_appears_late(ctx: Ctx) -> None:
     class Late(Source):
         name = "late"

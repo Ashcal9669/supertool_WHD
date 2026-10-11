@@ -60,7 +60,7 @@ function PhyRings({ d, phy }: { d: Device; phy: string }) {
         const k = ringName(key, ".queued");
         return <Ring key={k} label={`RX ring ${k.replace(/^rx/, "")}`} queued={num(lr, `${k}.queued`)} max={maxOf(rx, `${k}.queued`)} rate={num(lr, `${k}.advanced`)} rateLabel="adv/s" />;
       })}
-      <p className="text-[11px] text-dim md:col-span-2 xl:col-span-3">Red MCU ring = commands queued while nothing was submitted in the last second (possible stuck command). Rates are cpu_idx/head deltas between 1 Hz debugfs reads.</p>
+      <p className="text-[11px] text-dim md:col-span-2 xl:col-span-3">Red MCU ring = commands queued while nothing was submitted in the last second (possible stuck command). Rates are producer-index (cpu_idx, or head where the driver has no cpu_idx) deltas between 1 Hz debugfs reads; a ring wrap leaves a gap.</p>
     </div>
   );
 }

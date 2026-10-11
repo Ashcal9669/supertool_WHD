@@ -92,7 +92,11 @@ function Coverage({ d, phy }: { d: Device; phy?: string }) {
   );
 }
 
+const cell = (v: unknown): string => (v === undefined || v === null ? "—" : String(v));
+
 function Queues({ d, snap, phy }: { d: Device; snap?: Mt76Snapshot; phy: string }) {
+  // optional columns: only drivers that print them get them (stock mt76 prints queued/head/tail only)
+  const hasHwIdx = !!snap && snap.xmit_queues.some((q) => q.cpu_idx !== undefined || q.dma_idx !== undefined);
   const xs = useSeries(`mt76q:${phy}:xmit`, d.id);
   const rx = useSeries(`mt76q:${phy}:rx`, d.id);
   const queuedKeys = ringKeys(xs, ".queued");
@@ -105,15 +109,15 @@ function Queues({ d, snap, phy }: { d: Device; snap?: Mt76Snapshot; phy: string 
     <div className="space-y-3">
       <div className="grid gap-3 xl:grid-cols-2">
         <TimeChart title="TX / MCU ring occupancy (debugfs xmit-queues, 1 Hz)" series={`mt76q:${phy}:xmit`} defs={queuedDefs} />
-        <TimeChart title="Ring submissions per second (cpu_idx delta)" series={`mt76q:${phy}:xmit`} defs={submittedDefs} />
+        <TimeChart title="Ring submissions per second (producer-index delta)" series={`mt76q:${phy}:xmit`} defs={submittedDefs} />
         <TimeChart title="RX ring head advance per second" series={`mt76q:${phy}:rx`} defs={advancedDefs} />
       </div>
       {snap && (
         <div className="grid gap-3 lg:grid-cols-2">
           <Panel title="TX / MCU rings (latest read)">
-            <table className="mono w-full text-[12px]"><thead className="text-dim"><tr><th className="text-left">ring</th><th>queued</th><th>head</th><th>tail</th><th>cpu_idx</th><th>dma_idx</th></tr></thead>
-              <tbody>{snap.xmit_queues.map((q) => <tr key={String(q.name)}><td>{String(q.name)}</td><td className="text-center">{String(q.queued)}</td><td className="text-center">{String(q.head)}</td><td className="text-center">{String(q.tail)}</td><td className="text-center">{String(q.cpu_idx)}</td><td className="text-center">{String(q.dma_idx)}</td></tr>)}</tbody></table>
-            <p className="mt-1 text-[10px] text-dim">cpu_idx ≠ dma_idx means descriptors are in flight to the device.</p>
+            <table className="mono w-full text-[12px]"><thead className="text-dim"><tr><th className="text-left">ring</th><th>queued</th><th>head</th><th>tail</th>{hasHwIdx && <><th>cpu_idx</th><th>dma_idx</th></>}</tr></thead>
+              <tbody>{snap.xmit_queues.map((q) => <tr key={String(q.name)}><td>{String(q.name)}</td><td className="text-center">{cell(q.queued)}</td><td className="text-center">{cell(q.head)}</td><td className="text-center">{cell(q.tail)}</td>{hasHwIdx && <><td className="text-center">{cell(q.cpu_idx)}</td><td className="text-center">{cell(q.dma_idx)}</td></>}</tr>)}</tbody></table>
+            <p className="mt-1 text-[10px] text-dim">{hasHwIdx ? "cpu_idx ≠ dma_idx means descriptors are in flight to the device." : "This driver build prints only queued/head/tail for these rings (no cpu_idx/dma_idx)."}</p>
           </Panel>
           <Panel title="RX rings (latest read)">
             <table className="mono w-full text-[12px]"><thead className="text-dim"><tr><th>queue</th><th>hw-queued</th><th>head</th><th>tail</th></tr></thead>
