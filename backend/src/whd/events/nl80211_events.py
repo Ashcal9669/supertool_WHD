@@ -95,6 +95,8 @@ def decode_event(payload: bytes) -> tuple[str, Category, Severity, str, str, dic
     d: dict[str, Any] = {"cmd": cmd}
     if (v := a.u32(C.NL80211_ATTR_IFINDEX)) is not None:
         d["ifindex"] = v
+    if (wdev := a.u64(C.NL80211_ATTR_WDEV)) is not None:
+        d["wdev"] = wdev
     if (v2 := a.str(C.NL80211_ATTR_IFNAME)) is not None:
         d["ifname"] = v2
     if (v := a.u32(C.NL80211_ATTR_WIPHY)) is not None:

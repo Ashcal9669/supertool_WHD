@@ -1,6 +1,320 @@
 {
  "components": {
   "schemas": {
+   "AirFrame": {
+    "properties": {
+     "addr1": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Addr1"
+     },
+     "addr2": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Addr2"
+     },
+     "addr3": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Addr3"
+     },
+     "captured_bytes": {
+      "title": "Captured Bytes",
+      "type": "integer"
+     },
+     "eapol": {
+      "anyOf": [
+       {
+        "additionalProperties": {
+         "anyOf": [
+          {
+           "type": "integer"
+          },
+          {
+           "type": "string"
+          },
+          {
+           "type": "null"
+          }
+         ]
+        },
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Eapol"
+     },
+     "frame_type": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Frame Type"
+     },
+     "freq_mhz": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Freq Mhz"
+     },
+     "original_bytes": {
+      "title": "Original Bytes",
+      "type": "integer"
+     },
+     "protected": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Protected"
+     },
+     "raw_hex": {
+      "title": "Raw Hex",
+      "type": "string"
+     },
+     "sequence": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sequence"
+     },
+     "subtype": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Subtype"
+     },
+     "timestamp": {
+      "title": "Timestamp",
+      "type": "number"
+     }
+    },
+    "required": [
+     "timestamp",
+     "raw_hex",
+     "captured_bytes",
+     "original_bytes",
+     "freq_mhz",
+     "addr1",
+     "addr2",
+     "addr3",
+     "sequence",
+     "frame_type",
+     "subtype",
+     "protected",
+     "eapol"
+    ],
+    "title": "AirFrame",
+    "type": "object"
+   },
+   "AirReport": {
+    "properties": {
+     "can_establish_absence": {
+      "default": false,
+      "title": "Can Establish Absence",
+      "type": "boolean"
+     },
+     "channel_changes": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Channel Changes",
+      "type": "array"
+     },
+     "dropped_packets": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Dropped Packets"
+     },
+     "filename": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Filename"
+     },
+     "frames": {
+      "items": {
+       "$ref": "#/components/schemas/AirFrame"
+      },
+      "title": "Frames",
+      "type": "array"
+     },
+     "health": {
+      "default": "unknown",
+      "title": "Health",
+      "type": "string"
+     },
+     "import_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Import Id"
+     },
+     "limits": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Limits",
+      "type": "array"
+     },
+     "linktype": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Linktype"
+     },
+     "origin": {
+      "enum": [
+       "independent",
+       "ap_local",
+       "same_phy"
+      ],
+      "title": "Origin",
+      "type": "string"
+     },
+     "original_retained": {
+      "default": true,
+      "title": "Original Retained",
+      "type": "boolean"
+     },
+     "pcap_artifact": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pcap Artifact"
+     },
+     "report_artifact": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Report Artifact"
+     },
+     "sha256": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sha256"
+     },
+     "stalls": {
+      "items": {
+       "type": "number"
+      },
+      "title": "Stalls",
+      "type": "array"
+     },
+     "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+     },
+     "unsupported_frames": {
+      "default": 0,
+      "title": "Unsupported Frames",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "origin",
+     "import_id",
+     "filename",
+     "sha256",
+     "pcap_artifact",
+     "original_retained",
+     "report_artifact",
+     "linktype",
+     "frames",
+     "unsupported_frames",
+     "truncated",
+     "health",
+     "stalls",
+     "channel_changes",
+     "dropped_packets",
+     "can_establish_absence",
+     "limits"
+    ],
+    "title": "AirReport",
+    "type": "object"
+   },
    "AnalyzeBody": {
     "properties": {
      "capture_id": {
@@ -1032,6 +1346,103 @@
     "title": "DecodedRegister",
     "type": "object"
    },
+   "DescriptorDecode": {
+    "properties": {
+     "complete": {
+      "default": false,
+      "title": "Complete",
+      "type": "boolean"
+     },
+     "consumer_match": {
+      "default": "unverified",
+      "enum": [
+       "matched",
+       "unverified"
+      ],
+      "title": "Consumer Match",
+      "type": "string"
+     },
+     "fields": {
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "boolean"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "title": "Fields",
+      "type": "object"
+     },
+     "invalid_words": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Invalid Words",
+      "type": "array"
+     },
+     "layout_match": {
+      "default": "unverified",
+      "enum": [
+       "matched",
+       "unverified"
+      ],
+      "title": "Layout Match",
+      "type": "string"
+     },
+     "layout_source": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Layout Source",
+      "type": "object"
+     },
+     "limits": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Limits",
+      "type": "array"
+     },
+     "matches_loaded_build": {
+      "title": "Matches Loaded Build",
+      "type": "null"
+     },
+     "missing_words": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Missing Words",
+      "type": "array"
+     },
+     "raw_words": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Raw Words",
+      "type": "object"
+     }
+    },
+    "required": [
+     "raw_words",
+     "fields",
+     "layout_match",
+     "consumer_match",
+     "complete",
+     "invalid_words",
+     "missing_words",
+     "matches_loaded_build",
+     "layout_source",
+     "limits"
+    ],
+    "title": "DescriptorDecode",
+    "type": "object"
+   },
    "DetectionReason": {
     "properties": {
      "detail": {
@@ -1067,6 +1478,16 @@
    },
    "Device": {
     "properties": {
+     "active_test_eligible": {
+      "default": false,
+      "title": "Active Test Eligible",
+      "type": "boolean"
+     },
+     "active_test_reason": {
+      "default": "active testing restricted to MT7922",
+      "title": "Active Test Reason",
+      "type": "string"
+     },
      "bus": {
       "enum": [
        "pci",
@@ -1324,6 +1745,8 @@
      "last_seen",
      "present",
      "demo",
+     "active_test_eligible",
+     "active_test_reason",
      "bus_path",
      "pci",
      "pci_config",
@@ -1341,6 +1764,16 @@
    },
    "DeviceSummary": {
     "properties": {
+     "active_test_eligible": {
+      "default": false,
+      "title": "Active Test Eligible",
+      "type": "boolean"
+     },
+     "active_test_reason": {
+      "default": "active testing restricted to MT7922",
+      "title": "Active Test Reason",
+      "type": "string"
+     },
      "bus": {
       "enum": [
        "pci",
@@ -1525,7 +1958,9 @@
      "first_seen",
      "last_seen",
      "present",
-     "demo"
+     "demo",
+     "active_test_eligible",
+     "active_test_reason"
     ],
     "title": "DeviceSummary",
     "type": "object"
@@ -1614,7 +2049,7 @@
       "type": "string"
      },
      "scope": {
-      "$ref": "#/components/schemas/Scope"
+      "$ref": "#/components/schemas/whd__diagnostics__models__Scope"
      },
      "whd_version": {
       "title": "Whd Version",
@@ -1639,6 +2074,56 @@
      "live_checks"
     ],
     "title": "DiagnosticReport",
+    "type": "object"
+   },
+   "Dimension": {
+    "properties": {
+     "basis": {
+      "title": "Basis",
+      "type": "string"
+     },
+     "evidence": {
+      "items": {
+       "$ref": "#/components/schemas/EvidenceRef"
+      },
+      "title": "Evidence",
+      "type": "array"
+     },
+     "historical": {
+      "default": false,
+      "title": "Historical",
+      "type": "boolean"
+     },
+     "limits": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Limits"
+     },
+     "value": {
+      "enum": [
+       "yes",
+       "no",
+       "unknown",
+       "driver_only"
+      ],
+      "title": "Value",
+      "type": "string"
+     }
+    },
+    "required": [
+     "value",
+     "basis",
+     "evidence",
+     "limits",
+     "historical"
+    ],
+    "title": "Dimension",
     "type": "object"
    },
    "DriverInfo": {
@@ -1778,6 +2263,170 @@
      "ppe_hex"
     ],
     "title": "EhtCaps",
+    "type": "object"
+   },
+   "Epoch": {
+    "properties": {
+     "boot_id": {
+      "title": "Boot Id",
+      "type": "string"
+     },
+     "device_id": {
+      "title": "Device Id",
+      "type": "string"
+     },
+     "end_ns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "End Ns"
+     },
+     "first_missing": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "First Missing"
+     },
+     "flags": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Flags",
+      "type": "array"
+     },
+     "gaps": {
+      "items": {
+       "$ref": "#/components/schemas/Gap"
+      },
+      "title": "Gaps",
+      "type": "array"
+     },
+     "historical": {
+      "default": true,
+      "title": "Historical",
+      "type": "boolean"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "interface": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Interface"
+     },
+     "interface_lifetime": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Interface Lifetime"
+     },
+     "local_address": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Local Address"
+     },
+     "missing": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Missing",
+      "type": "array"
+     },
+     "outcome": {
+      "enum": [
+       "associated",
+       "rejected",
+       "timed_out",
+       "disconnected",
+       "in_progress",
+       "unknown"
+      ],
+      "title": "Outcome",
+      "type": "string"
+     },
+     "peer": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Peer"
+     },
+     "request_tokens": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Request Tokens",
+      "type": "array"
+     },
+     "stages": {
+      "items": {
+       "$ref": "#/components/schemas/StageObs"
+      },
+      "title": "Stages",
+      "type": "array"
+     },
+     "start_ns": {
+      "title": "Start Ns",
+      "type": "integer"
+     },
+     "started_observed": {
+      "title": "Started Observed",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "interface",
+     "interface_lifetime",
+     "id",
+     "boot_id",
+     "device_id",
+     "local_address",
+     "peer",
+     "start_ns",
+     "end_ns",
+     "started_observed",
+     "outcome",
+     "stages",
+     "first_missing",
+     "missing",
+     "gaps",
+     "flags",
+     "request_tokens",
+     "historical"
+    ],
+    "title": "Epoch",
     "type": "object"
    },
    "Event": {
@@ -1982,6 +2631,560 @@
     "title": "EventPage",
     "type": "object"
    },
+   "EvidenceRef": {
+    "properties": {
+     "event_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Event Id"
+     },
+     "kind": {
+      "title": "Kind",
+      "type": "string"
+     },
+     "source": {
+      "default": "event",
+      "title": "Source",
+      "type": "string"
+     },
+     "text": {
+      "default": "",
+      "title": "Text",
+      "type": "string"
+     },
+     "ts_boottime_ns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ts Boottime Ns"
+     }
+    },
+    "required": [
+     "event_id",
+     "ts_boottime_ns",
+     "kind",
+     "text",
+     "source"
+    ],
+    "title": "EvidenceRef",
+    "type": "object"
+   },
+   "EvidenceReport": {
+    "properties": {
+     "capture_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Capture Id"
+     },
+     "counter_semantics": {
+      "items": {
+       "additionalProperties": {
+        "type": "string"
+       },
+       "type": "object"
+      },
+      "title": "Counter Semantics",
+      "type": "array"
+     },
+     "current_observations": {
+      "additionalProperties": true,
+      "title": "Current Observations",
+      "type": "object"
+     },
+     "current_state": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/MloState"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "decoder_source": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decoder Source"
+     },
+     "device_id": {
+      "title": "Device Id",
+      "type": "string"
+     },
+     "epochs": {
+      "items": {
+       "$ref": "#/components/schemas/Epoch"
+      },
+      "title": "Epochs",
+      "type": "array"
+     },
+     "historical": {
+      "default": true,
+      "title": "Historical",
+      "type": "boolean"
+     },
+     "limits": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Limits",
+      "type": "array"
+     },
+     "mcu_payloads": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Mcu Payloads",
+      "type": "array"
+     },
+     "mcu_transport": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "title": "Mcu Transport",
+      "type": "array"
+     },
+     "mode": {
+      "title": "Mode",
+      "type": "string"
+     },
+     "observations": {
+      "items": {
+       "$ref": "#/components/schemas/Event"
+      },
+      "title": "Observations",
+      "type": "array"
+     },
+     "packets": {
+      "items": {
+       "$ref": "#/components/schemas/PacketPath"
+      },
+      "title": "Packets",
+      "type": "array"
+     },
+     "protocol": {
+      "default": "unknown",
+      "enum": [
+       "ordinary",
+       "mlo",
+       "unknown"
+      ],
+      "title": "Protocol",
+      "type": "string"
+     },
+     "snapshot_states": {
+      "items": {
+       "$ref": "#/components/schemas/MloState"
+      },
+      "title": "Snapshot States",
+      "type": "array"
+     },
+     "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+     },
+     "unassigned_observations": {
+      "description": "Unattributed input records retained individually; not evidence for the selected device or link.",
+      "items": {
+       "$ref": "#/components/schemas/Event"
+      },
+      "title": "Unassigned Observations",
+      "type": "array"
+     },
+     "unattributed_events": {
+      "title": "Unattributed Events",
+      "type": "integer"
+     },
+     "windows": {
+      "items": {
+       "$ref": "#/components/schemas/EvidenceWindow"
+      },
+      "title": "Windows",
+      "type": "array"
+     }
+    },
+    "required": [
+     "device_id",
+     "mode",
+     "protocol",
+     "historical",
+     "capture_id",
+     "current_state",
+     "current_observations",
+     "snapshot_states",
+     "windows",
+     "epochs",
+     "packets",
+     "observations",
+     "unassigned_observations",
+     "unattributed_events",
+     "mcu_payloads",
+     "mcu_transport",
+     "truncated",
+     "counter_semantics",
+     "decoder_source",
+     "limits"
+    ],
+    "title": "EvidenceReport",
+    "type": "object"
+   },
+   "EvidenceWindow": {
+    "properties": {
+     "firmware": {
+      "$ref": "#/components/schemas/FwReport"
+     },
+     "rx_frames": {
+      "items": {
+       "$ref": "#/components/schemas/RxFrame"
+      },
+      "title": "Rx Frames",
+      "type": "array"
+     },
+     "rx_summary": {
+      "$ref": "#/components/schemas/RxSummary"
+     },
+     "scope": {
+      "$ref": "#/components/schemas/whd__mlo__models__Scope"
+     },
+     "state": {
+      "$ref": "#/components/schemas/MloState"
+     }
+    },
+    "required": [
+     "scope",
+     "firmware",
+     "rx_frames",
+     "rx_summary",
+     "state"
+    ],
+    "title": "EvidenceWindow",
+    "type": "object"
+   },
+   "ExperimentRequest-Input": {
+    "properties": {
+     "comparison_group": {
+      "anyOf": [
+       {
+        "maxLength": 80,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Comparison Group"
+     },
+     "condition": {
+      "default": "observation",
+      "enum": [
+       "control",
+       "fix",
+       "control_after",
+       "observation"
+      ],
+      "title": "Condition",
+      "type": "string"
+     },
+     "count": {
+      "default": 3,
+      "maximum": 10.0,
+      "minimum": 1.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "device_id": {
+      "title": "Device Id",
+      "type": "string"
+     },
+     "interface": {
+      "title": "Interface",
+      "type": "string"
+     },
+     "port": {
+      "default": 5201,
+      "maximum": 65535.0,
+      "minimum": 1.0,
+      "title": "Port",
+      "type": "integer"
+     },
+     "seconds": {
+      "default": 5,
+      "maximum": 30.0,
+      "minimum": 1.0,
+      "title": "Seconds",
+      "type": "integer"
+     },
+     "target": {
+      "title": "Target",
+      "type": "string"
+     },
+     "tool": {
+      "default": "ping",
+      "enum": [
+       "ping",
+       "iperf3"
+      ],
+      "title": "Tool",
+      "type": "string"
+     },
+     "trace_events": {
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Trace Events",
+      "type": "array"
+     },
+     "wake_counters": {
+      "default": false,
+      "title": "Wake Counters",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "device_id",
+     "interface",
+     "target"
+    ],
+    "title": "ExperimentRequest",
+    "type": "object"
+   },
+   "ExperimentRequest-Output": {
+    "properties": {
+     "comparison_group": {
+      "anyOf": [
+       {
+        "maxLength": 80,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Comparison Group"
+     },
+     "condition": {
+      "default": "observation",
+      "enum": [
+       "control",
+       "fix",
+       "control_after",
+       "observation"
+      ],
+      "title": "Condition",
+      "type": "string"
+     },
+     "count": {
+      "default": 3,
+      "maximum": 10.0,
+      "minimum": 1.0,
+      "title": "Count",
+      "type": "integer"
+     },
+     "device_id": {
+      "title": "Device Id",
+      "type": "string"
+     },
+     "interface": {
+      "title": "Interface",
+      "type": "string"
+     },
+     "port": {
+      "default": 5201,
+      "maximum": 65535.0,
+      "minimum": 1.0,
+      "title": "Port",
+      "type": "integer"
+     },
+     "seconds": {
+      "default": 5,
+      "maximum": 30.0,
+      "minimum": 1.0,
+      "title": "Seconds",
+      "type": "integer"
+     },
+     "target": {
+      "title": "Target",
+      "type": "string"
+     },
+     "tool": {
+      "default": "ping",
+      "enum": [
+       "ping",
+       "iperf3"
+      ],
+      "title": "Tool",
+      "type": "string"
+     },
+     "trace_events": {
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 64,
+      "title": "Trace Events",
+      "type": "array"
+     },
+     "wake_counters": {
+      "default": false,
+      "title": "Wake Counters",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "device_id",
+     "interface",
+     "target",
+     "tool",
+     "seconds",
+     "count",
+     "port",
+     "trace_events",
+     "wake_counters",
+     "comparison_group",
+     "condition"
+    ],
+    "title": "ExperimentRequest",
+    "type": "object"
+   },
+   "ExperimentResult": {
+    "properties": {
+     "after": {
+      "additionalProperties": true,
+      "title": "After",
+      "type": "object"
+     },
+     "before": {
+      "additionalProperties": true,
+      "title": "Before",
+      "type": "object"
+     },
+     "capture_id": {
+      "title": "Capture Id",
+      "type": "string"
+     },
+     "command": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Command",
+      "type": "array"
+     },
+     "deltas": {
+      "additionalProperties": {
+       "anyOf": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "null"
+        }
+       ]
+      },
+      "title": "Deltas",
+      "type": "object"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "exit_code": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Exit Code"
+     },
+     "limits": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Limits",
+      "type": "array"
+     },
+     "output": {
+      "default": "",
+      "title": "Output",
+      "type": "string"
+     },
+     "per_link_deltas": {
+      "additionalProperties": {
+       "additionalProperties": {
+        "anyOf": [
+         {
+          "type": "integer"
+         },
+         {
+          "type": "null"
+         }
+        ]
+       },
+       "type": "object"
+      },
+      "title": "Per Link Deltas",
+      "type": "object"
+     },
+     "request": {
+      "$ref": "#/components/schemas/ExperimentRequest-Output"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     }
+    },
+    "required": [
+     "capture_id",
+     "status",
+     "request",
+     "before",
+     "after",
+     "deltas",
+     "per_link_deltas",
+     "command",
+     "exit_code",
+     "output",
+     "error",
+     "limits"
+    ],
+    "title": "ExperimentResult",
+    "type": "object"
+   },
    "FirmwareInfo": {
     "properties": {
      "declared_files": {
@@ -2065,6 +3268,250 @@
      "whd_feature"
     ],
     "title": "FollowUp",
+    "type": "object"
+   },
+   "FwOp": {
+    "properties": {
+     "bytes_available": {
+      "default": false,
+      "title": "Bytes Available",
+      "type": "boolean"
+     },
+     "changed_vs_previous": {
+      "additionalProperties": {
+       "items": {},
+       "type": "array"
+      },
+      "title": "Changed Vs Previous",
+      "type": "object"
+     },
+     "cmd": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cmd"
+     },
+     "cmd_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Cmd Name"
+     },
+     "duration_us": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Duration Us"
+     },
+     "evidence": {
+      "items": {
+       "$ref": "#/components/schemas/EvidenceRef"
+      },
+      "title": "Evidence",
+      "type": "array"
+     },
+     "link": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link"
+     },
+     "raw_len": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Raw Len"
+     },
+     "requested": {
+      "additionalProperties": true,
+      "title": "Requested",
+      "type": "object"
+     },
+     "ret": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ret"
+     },
+     "seq": {
+      "title": "Seq",
+      "type": "integer"
+     },
+     "status": {
+      "title": "Status",
+      "type": "string"
+     },
+     "token": {
+      "title": "Token",
+      "type": "string"
+     },
+     "ts_done_ns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ts Done Ns"
+     },
+     "ts_start_ns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ts Start Ns"
+     }
+    },
+    "required": [
+     "seq",
+     "cmd",
+     "cmd_name",
+     "link",
+     "token",
+     "ts_start_ns",
+     "ts_done_ns",
+     "duration_us",
+     "ret",
+     "status",
+     "raw_len",
+     "bytes_available",
+     "requested",
+     "changed_vs_previous",
+     "evidence"
+    ],
+    "title": "FwOp",
+    "type": "object"
+   },
+   "FwReport": {
+    "properties": {
+     "flags": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Flags",
+      "type": "array"
+     },
+     "gaps": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Gaps",
+      "type": "array"
+     },
+     "generations": {
+      "items": {
+       "type": "integer"
+      },
+      "title": "Generations",
+      "type": "array"
+     },
+     "links": {
+      "items": {
+       "$ref": "#/components/schemas/LinkIdentity"
+      },
+      "title": "Links",
+      "type": "array"
+     },
+     "ops": {
+      "items": {
+       "$ref": "#/components/schemas/FwOp"
+      },
+      "title": "Ops",
+      "type": "array"
+     }
+    },
+    "required": [
+     "ops",
+     "links",
+     "flags",
+     "generations",
+     "gaps"
+    ],
+    "title": "FwReport",
+    "type": "object"
+   },
+   "Gap": {
+    "properties": {
+     "collector": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Collector"
+     },
+     "detail": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail"
+     },
+     "kind": {
+      "enum": [
+       "no_collector",
+       "not_traced",
+       "absent_while_collected",
+       "not_applicable"
+      ],
+      "title": "Kind",
+      "type": "string"
+     },
+     "what": {
+      "title": "What",
+      "type": "string"
+     }
+    },
+    "required": [
+     "kind",
+     "what",
+     "collector",
+     "detail"
+    ],
+    "title": "Gap",
     "type": "object"
    },
    "HTTPValidationError": {
@@ -2860,6 +4307,200 @@
     "title": "LinkActivity",
     "type": "object"
    },
+   "LinkIdentity": {
+    "properties": {
+     "completed_evidence": {
+      "items": {
+       "$ref": "#/components/schemas/EvidenceRef"
+      },
+      "title": "Completed Evidence",
+      "type": "array"
+     },
+     "current": {
+      "additionalProperties": true,
+      "title": "Current",
+      "type": "object"
+     },
+     "first_seen_ns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "First Seen Ns"
+     },
+     "last_seen_ns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Seen Ns"
+     },
+     "link_id": {
+      "title": "Link Id",
+      "type": "integer"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Sources",
+      "type": "array"
+     }
+    },
+    "required": [
+     "link_id",
+     "current",
+     "first_seen_ns",
+     "last_seen_ns",
+     "sources",
+     "completed_evidence"
+    ],
+    "title": "LinkIdentity",
+    "type": "object"
+   },
+   "LinkState": {
+    "properties": {
+     "active": {
+      "$ref": "#/components/schemas/Dimension"
+     },
+     "authenticated_delivery": {
+      "$ref": "#/components/schemas/Dimension"
+     },
+     "authorized": {
+      "$ref": "#/components/schemas/Dimension"
+     },
+     "band": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Band"
+     },
+     "bssid": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Bssid"
+     },
+     "channel": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Channel"
+     },
+     "conflicts": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Conflicts",
+      "type": "array"
+     },
+     "counters": {
+      "additionalProperties": true,
+      "title": "Counters",
+      "type": "object"
+     },
+     "freq_mhz": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Freq Mhz"
+     },
+     "fw_programmed": {
+      "$ref": "#/components/schemas/Dimension"
+     },
+     "link_id": {
+      "title": "Link Id",
+      "type": "integer"
+     },
+     "mac": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mac"
+     },
+     "negotiated": {
+      "$ref": "#/components/schemas/Dimension"
+     },
+     "scope": {
+      "$ref": "#/components/schemas/whd__mlo__models__Scope"
+     },
+     "wcid": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Wcid"
+     },
+     "width_mhz": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Width Mhz"
+     }
+    },
+    "required": [
+     "link_id",
+     "scope",
+     "mac",
+     "bssid",
+     "freq_mhz",
+     "channel",
+     "band",
+     "width_mhz",
+     "wcid",
+     "negotiated",
+     "active",
+     "fw_programmed",
+     "authorized",
+     "authenticated_delivery",
+     "counters",
+     "conflicts"
+    ],
+    "title": "LinkState",
+    "type": "object"
+   },
    "LiveCheck": {
     "description": "One reading taken at analysis time, shown beside the historical claims so the report is not only a replay.",
     "properties": {
@@ -2939,8 +4580,15 @@
       "title": "Association Summary"
      },
      "connected": {
-      "title": "Connected",
-      "type": "boolean"
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Connected"
      },
      "errors": {
       "additionalProperties": {
@@ -2997,6 +4645,92 @@
      "token"
     ],
     "title": "LoginBody",
+    "type": "object"
+   },
+   "MaskDecode": {
+    "properties": {
+     "active": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "integer"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Active"
+     },
+     "basis": {
+      "title": "Basis",
+      "type": "string"
+     },
+     "consistent": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Consistent"
+     },
+     "layout": {
+      "enum": [
+       "packed_active_valid",
+       "active_only_unverified",
+       "zero",
+       "unreadable"
+      ],
+      "title": "Layout",
+      "type": "string"
+     },
+     "notes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+     },
+     "raw": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Raw"
+     },
+     "valid": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "integer"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Valid"
+     }
+    },
+    "required": [
+     "raw",
+     "layout",
+     "active",
+     "valid",
+     "consistent",
+     "basis",
+     "notes"
+    ],
+    "title": "MaskDecode",
     "type": "object"
    },
    "Migration": {
@@ -3230,6 +4964,126 @@
      "txpower_dbm"
     ],
     "title": "MloLink",
+    "type": "object"
+   },
+   "MloState": {
+    "properties": {
+     "association_epoch": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Association Epoch"
+     },
+     "boot_id": {
+      "title": "Boot Id",
+      "type": "string"
+     },
+     "boottime_ns": {
+      "title": "Boottime Ns",
+      "type": "integer"
+     },
+     "device_id": {
+      "title": "Device Id",
+      "type": "string"
+     },
+     "generated_at": {
+      "title": "Generated At",
+      "type": "number"
+     },
+     "interface": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Interface"
+     },
+     "legend": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Legend",
+      "type": "object"
+     },
+     "links": {
+      "items": {
+       "$ref": "#/components/schemas/LinkState"
+      },
+      "title": "Links",
+      "type": "array"
+     },
+     "mac80211_authorized": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mac80211 Authorized"
+     },
+     "mask": {
+      "$ref": "#/components/schemas/MaskDecode"
+     },
+     "notes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+     },
+     "perturbations": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Perturbations",
+      "type": "array"
+     },
+     "phy": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phy"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Sources",
+      "type": "array"
+     }
+    },
+    "required": [
+     "device_id",
+     "phy",
+     "interface",
+     "boot_id",
+     "association_epoch",
+     "generated_at",
+     "boottime_ns",
+     "mask",
+     "mac80211_authorized",
+     "links",
+     "legend",
+     "sources",
+     "perturbations",
+     "notes"
+    ],
+    "title": "MloState",
     "type": "object"
    },
    "Mt76Snapshot": {
@@ -3734,6 +5588,212 @@
      "error"
     ],
     "title": "OllamaStatus",
+    "type": "object"
+   },
+   "PacketObservation": {
+    "properties": {
+     "decoded": {
+      "additionalProperties": true,
+      "title": "Decoded",
+      "type": "object"
+     },
+     "elapsed_ns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Elapsed Ns"
+     },
+     "evidence": {
+      "items": {
+       "$ref": "#/components/schemas/EvidenceRef"
+      },
+      "title": "Evidence",
+      "type": "array"
+     },
+     "explicit_boot": {
+      "default": false,
+      "title": "Explicit Boot",
+      "type": "boolean"
+     },
+     "identifiers": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Identifiers",
+      "type": "object"
+     },
+     "observed_interface": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Observed Interface"
+     },
+     "raw": {
+      "title": "Raw",
+      "type": "string"
+     },
+     "stage": {
+      "title": "Stage",
+      "type": "string"
+     },
+     "stage_class": {
+      "default": "observation",
+      "enum": [
+       "queued_request",
+       "core_complete",
+       "firmware_result",
+       "verified_delivery",
+       "observation"
+      ],
+      "title": "Stage Class",
+      "type": "string"
+     },
+     "ts_boottime_ns": {
+      "title": "Ts Boottime Ns",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "stage",
+     "stage_class",
+     "ts_boottime_ns",
+     "elapsed_ns",
+     "identifiers",
+     "decoded",
+     "raw",
+     "evidence",
+     "explicit_boot",
+     "observed_interface"
+    ],
+    "title": "PacketObservation",
+    "type": "object"
+   },
+   "PacketPath": {
+    "properties": {
+     "acked": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Acked"
+     },
+     "authenticated_delivery": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Authenticated Delivery"
+     },
+     "correlation": {
+      "title": "Correlation",
+      "type": "string"
+     },
+     "delivered": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Delivered"
+     },
+     "direction": {
+      "default": "unknown",
+      "enum": [
+       "tx",
+       "rx",
+       "exchange",
+       "unknown"
+      ],
+      "title": "Direction",
+      "type": "string"
+     },
+     "duration_ns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Duration Ns"
+     },
+     "first_missing": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "First Missing"
+     },
+     "gaps": {
+      "items": {
+       "$ref": "#/components/schemas/Gap"
+      },
+      "title": "Gaps",
+      "type": "array"
+     },
+     "id": {
+      "title": "Id",
+      "type": "string"
+     },
+     "limits": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Limits",
+      "type": "array"
+     },
+     "observations": {
+      "items": {
+       "$ref": "#/components/schemas/PacketObservation"
+      },
+      "title": "Observations",
+      "type": "array"
+     },
+     "scope": {
+      "$ref": "#/components/schemas/whd__mlo__models__Scope"
+     }
+    },
+    "required": [
+     "id",
+     "scope",
+     "correlation",
+     "direction",
+     "observations",
+     "gaps",
+     "first_missing",
+     "acked",
+     "delivered",
+     "authenticated_delivery",
+     "duration_ns",
+     "limits"
+    ],
+    "title": "PacketPath",
     "type": "object"
    },
    "Pattern": {
@@ -5124,6 +7184,527 @@
     "title": "Rfkill",
     "type": "object"
    },
+   "RxFrame": {
+    "properties": {
+     "association_epoch": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Association Epoch"
+     },
+     "authenticated": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Authenticated"
+     },
+     "boot_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Boot Id"
+     },
+     "boundary_observations": {
+      "items": {
+       "additionalProperties": {
+        "type": "string"
+       },
+       "type": "object"
+      },
+      "title": "Boundary Observations",
+      "type": "array"
+     },
+     "channel_matches": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Channel Matches"
+     },
+     "chfreq": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Chfreq"
+     },
+     "decrypted": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Decrypted"
+     },
+     "delivered": {
+      "default": false,
+      "title": "Delivered",
+      "type": "boolean"
+     },
+     "desc_band": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Desc Band"
+     },
+     "descriptor_decode": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/DescriptorDecode"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "device_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Device Id"
+     },
+     "evidence": {
+      "items": {
+       "$ref": "#/components/schemas/EvidenceRef"
+      },
+      "title": "Evidence",
+      "type": "array"
+     },
+     "expected_channel": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Expected Channel"
+     },
+     "explicit_boot": {
+      "default": false,
+      "title": "Explicit Boot",
+      "type": "boolean"
+     },
+     "fcs_err": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fcs Err"
+     },
+     "flags": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Flags"
+     },
+     "freq_mhz": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Freq Mhz"
+     },
+     "fw_idx": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Fw Idx"
+     },
+     "icv_err": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Icv Err"
+     },
+     "initial_link": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Initial Link"
+     },
+     "initial_wcid": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Initial Wcid"
+     },
+     "interface": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Interface"
+     },
+     "interface_lifetime": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Interface Lifetime"
+     },
+     "join_ambiguous": {
+      "default": false,
+      "title": "Join Ambiguous",
+      "type": "boolean"
+     },
+     "join_basis": {
+      "default": "adjacent driver log lines (no packet identifier available)",
+      "title": "Join Basis",
+      "type": "string"
+     },
+     "link_lifetime": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link Lifetime"
+     },
+     "mac80211_rx_reported": {
+      "default": false,
+      "title": "Mac80211 Rx Reported",
+      "type": "boolean"
+     },
+     "notes": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Notes",
+      "type": "array"
+     },
+     "observed_interface": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Observed Interface"
+     },
+     "packet_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Packet Id"
+     },
+     "pn": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pn"
+     },
+     "pn_drop_reported": {
+      "default": false,
+      "title": "Pn Drop Reported",
+      "type": "boolean"
+     },
+     "pn_ok_reported": {
+      "default": false,
+      "title": "Pn Ok Reported",
+      "type": "boolean"
+     },
+     "raw_descriptor_words": {
+      "additionalProperties": {
+       "type": "string"
+      },
+      "title": "Raw Descriptor Words",
+      "type": "object"
+     },
+     "remap_from_link": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Remap From Link"
+     },
+     "remap_to_link": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Remap To Link"
+     },
+     "resolved_link": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resolved Link"
+     },
+     "resolved_wcid": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Resolved Wcid"
+     },
+     "sec_mode": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sec Mode"
+     },
+     "skbaddr": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Skbaddr"
+     },
+     "tkip_mic_err": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Tkip Mic Err"
+     },
+     "ts_boottime_ns": {
+      "title": "Ts Boottime Ns",
+      "type": "integer"
+     },
+     "verdict": {
+      "title": "Verdict",
+      "type": "string"
+     },
+     "wcid_band": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Wcid Band"
+     }
+    },
+    "required": [
+     "ts_boottime_ns",
+     "device_id",
+     "boot_id",
+     "explicit_boot",
+     "interface",
+     "interface_lifetime",
+     "observed_interface",
+     "skbaddr",
+     "raw_descriptor_words",
+     "descriptor_decode",
+     "boundary_observations",
+     "freq_mhz",
+     "flags",
+     "mac80211_rx_reported",
+     "association_epoch",
+     "link_lifetime",
+     "fw_idx",
+     "desc_band",
+     "wcid_band",
+     "initial_wcid",
+     "initial_link",
+     "resolved_wcid",
+     "resolved_link",
+     "chfreq",
+     "remap_from_link",
+     "remap_to_link",
+     "sec_mode",
+     "decrypted",
+     "icv_err",
+     "fcs_err",
+     "tkip_mic_err",
+     "pn_ok_reported",
+     "pn_drop_reported",
+     "pn",
+     "expected_channel",
+     "channel_matches",
+     "authenticated",
+     "verdict",
+     "packet_id",
+     "delivered",
+     "join_ambiguous",
+     "notes",
+     "join_basis",
+     "evidence"
+    ],
+    "title": "RxFrame",
+    "type": "object"
+   },
+   "RxSummary": {
+    "properties": {
+     "authenticated_by_link": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Authenticated By Link",
+      "type": "object"
+     },
+     "by_resolved_link": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "By Resolved Link",
+      "type": "object"
+     },
+     "flags": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Flags",
+      "type": "array"
+     },
+     "frames": {
+      "title": "Frames",
+      "type": "integer"
+     },
+     "note": {
+      "title": "Note",
+      "type": "string"
+     },
+     "remap_none": {
+      "title": "Remap None",
+      "type": "integer"
+     },
+     "verdicts": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "title": "Verdicts",
+      "type": "object"
+     }
+    },
+    "required": [
+     "frames",
+     "by_resolved_link",
+     "verdicts",
+     "authenticated_by_link",
+     "remap_none",
+     "flags",
+     "note"
+    ],
+    "title": "RxSummary",
+    "type": "object"
+   },
    "ScanBss": {
     "properties": {
      "beacon_interval": {
@@ -5269,125 +7850,6 @@
     "title": "ScanBss",
     "type": "object"
    },
-   "Scope": {
-    "properties": {
-     "capture_id": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Capture Id"
-     },
-     "demo": {
-      "title": "Demo",
-      "type": "boolean"
-     },
-     "device_ids": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Device Ids",
-      "type": "array"
-     },
-     "event_count": {
-      "title": "Event Count",
-      "type": "integer"
-     },
-     "first_ns": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "First Ns"
-     },
-     "imported": {
-      "default": false,
-      "title": "Imported",
-      "type": "boolean"
-     },
-     "last_ns": {
-      "anyOf": [
-       {
-        "type": "integer"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Last Ns"
-     },
-     "live": {
-      "default": false,
-      "description": "true when the window ends now on this host (not a stored capture)",
-      "title": "Live",
-      "type": "boolean"
-     },
-     "newest_event_age_s": {
-      "anyOf": [
-       {
-        "type": "number"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "description": "age of the newest analyzed event when the report was generated (live only)",
-      "title": "Newest Event Age S"
-     },
-     "significant_event_count": {
-      "title": "Significant Event Count",
-      "type": "integer"
-     },
-     "sources": {
-      "items": {
-       "type": "string"
-      },
-      "title": "Sources",
-      "type": "array"
-     },
-     "unattributed_events": {
-      "default": 0,
-      "title": "Unattributed Events",
-      "type": "integer"
-     },
-     "window_s": {
-      "anyOf": [
-       {
-        "type": "number"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Window S"
-     }
-    },
-    "required": [
-     "device_ids",
-     "window_s",
-     "event_count",
-     "significant_event_count",
-     "sources",
-     "first_ns",
-     "last_ns",
-     "demo",
-     "capture_id",
-     "imported",
-     "unattributed_events",
-     "live",
-     "newest_event_age_s"
-    ],
-    "title": "Scope",
-    "type": "object"
-   },
    "SectionMeta": {
     "description": "Provenance attached to every data section shown in the UI.",
     "properties": {
@@ -5437,6 +7899,206 @@
      "note"
     ],
     "title": "SectionMeta",
+    "type": "object"
+   },
+   "StackCapture": {
+    "properties": {
+     "boot_id": {
+      "title": "Boot Id",
+      "type": "string"
+     },
+     "direction": {
+      "enum": [
+       "tx",
+       "rx"
+      ],
+      "title": "Direction",
+      "type": "string"
+     },
+     "events": {
+      "items": {
+       "$ref": "#/components/schemas/Event"
+      },
+      "title": "Events",
+      "type": "array"
+     },
+     "import_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Import Id"
+     },
+     "interface": {
+      "title": "Interface",
+      "type": "string"
+     },
+     "limits": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Limits",
+      "type": "array"
+     },
+     "original_retained": {
+      "default": true,
+      "title": "Original Retained",
+      "type": "boolean"
+     },
+     "pcap_artifact": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Pcap Artifact"
+     },
+     "report_artifact": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Report Artifact"
+     },
+     "sha256": {
+      "title": "Sha256",
+      "type": "string"
+     },
+     "truncated": {
+      "default": false,
+      "title": "Truncated",
+      "type": "boolean"
+     },
+     "unsupported": {
+      "default": 0,
+      "title": "Unsupported",
+      "type": "integer"
+     },
+     "wall_minus_boot_ns": {
+      "title": "Wall Minus Boot Ns",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "import_id",
+     "pcap_artifact",
+     "report_artifact",
+     "events",
+     "sha256",
+     "direction",
+     "interface",
+     "boot_id",
+     "wall_minus_boot_ns",
+     "original_retained",
+     "unsupported",
+     "truncated",
+     "limits"
+    ],
+    "title": "StackCapture",
+    "type": "object"
+   },
+   "StageObs": {
+    "properties": {
+     "evidence": {
+      "items": {
+       "$ref": "#/components/schemas/EvidenceRef"
+      },
+      "title": "Evidence",
+      "type": "array"
+     },
+     "link_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link Id"
+     },
+     "note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Note"
+     },
+     "result": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Result"
+     },
+     "stage": {
+      "title": "Stage",
+      "type": "string"
+     },
+     "stage_class": {
+      "enum": [
+       "queued_request",
+       "core_complete",
+       "firmware_result",
+       "verified_delivery",
+       "observation"
+      ],
+      "title": "Stage Class",
+      "type": "string"
+     },
+     "token": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Token"
+     },
+     "ts_boottime_ns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ts Boottime Ns"
+     }
+    },
+    "required": [
+     "stage",
+     "stage_class",
+     "ts_boottime_ns",
+     "result",
+     "link_id",
+     "token",
+     "evidence",
+     "note"
+    ],
+    "title": "StageObs",
     "type": "object"
    },
    "Station": {
@@ -6642,6 +9304,18 @@
       "minItems": 1,
       "title": "Events",
       "type": "array"
+     },
+     "interface": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "verified MT7922 interface required for live device filtering",
+      "title": "Interface"
      },
      "max_seconds": {
       "default": 600,
@@ -7916,6 +10590,17 @@
    },
    "WirelessLive": {
     "properties": {
+     "boot_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Boot Id"
+     },
      "capability_summary": {
       "additionalProperties": true,
       "title": "Capability Summary",
@@ -7961,6 +10646,7 @@
     "required": [
      "device_id",
      "taken_at",
+     "boot_id",
      "interfaces",
      "other_interfaces_on_wiphy",
      "regulatory",
@@ -7968,6 +10654,216 @@
      "notes"
     ],
     "title": "WirelessLive",
+    "type": "object"
+   },
+   "whd__diagnostics__models__Scope": {
+    "properties": {
+     "capture_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Capture Id"
+     },
+     "demo": {
+      "title": "Demo",
+      "type": "boolean"
+     },
+     "device_ids": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Device Ids",
+      "type": "array"
+     },
+     "event_count": {
+      "title": "Event Count",
+      "type": "integer"
+     },
+     "first_ns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "First Ns"
+     },
+     "imported": {
+      "default": false,
+      "title": "Imported",
+      "type": "boolean"
+     },
+     "last_ns": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Ns"
+     },
+     "live": {
+      "default": false,
+      "description": "true when the window ends now on this host (not a stored capture)",
+      "title": "Live",
+      "type": "boolean"
+     },
+     "newest_event_age_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "description": "age of the newest analyzed event when the report was generated (live only)",
+      "title": "Newest Event Age S"
+     },
+     "significant_event_count": {
+      "title": "Significant Event Count",
+      "type": "integer"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Sources",
+      "type": "array"
+     },
+     "unattributed_events": {
+      "default": 0,
+      "title": "Unattributed Events",
+      "type": "integer"
+     },
+     "window_s": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Window S"
+     }
+    },
+    "required": [
+     "device_ids",
+     "window_s",
+     "event_count",
+     "significant_event_count",
+     "sources",
+     "first_ns",
+     "last_ns",
+     "demo",
+     "capture_id",
+     "imported",
+     "unattributed_events",
+     "live",
+     "newest_event_age_s"
+    ],
+    "title": "Scope",
+    "type": "object"
+   },
+   "whd__mlo__models__Scope": {
+    "description": "Every observation belongs to exactly one boot, device, association epoch and (optionally) link lifetime.",
+    "properties": {
+     "association_epoch": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Association Epoch"
+     },
+     "boot_id": {
+      "title": "Boot Id",
+      "type": "string"
+     },
+     "device_id": {
+      "title": "Device Id",
+      "type": "string"
+     },
+     "interface": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Interface"
+     },
+     "interface_lifetime": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Interface Lifetime"
+     },
+     "link_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link Id"
+     },
+     "link_lifetime": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Link Lifetime"
+     },
+     "phy": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Phy"
+     }
+    },
+    "required": [
+     "boot_id",
+     "device_id",
+     "association_epoch",
+     "link_id",
+     "link_lifetime",
+     "interface",
+     "interface_lifetime",
+     "phy"
+    ],
+    "title": "Scope",
     "type": "object"
    }
   }
@@ -8278,6 +11174,52 @@
     "summary": "Get Capture"
    }
   },
+  "/api/v1/captures/{cid}/artifacts/{name}": {
+   "get": {
+    "operationId": "artifact_api_v1_captures__cid__artifacts__name__get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "path",
+      "name": "name",
+      "required": true,
+      "schema": {
+       "title": "Name",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Artifact"
+   }
+  },
   "/api/v1/captures/{cid}/bundle": {
    "get": {
     "operationId": "bundle_api_v1_captures__cid__bundle_get",
@@ -8506,6 +11448,163 @@
     "summary": "Export Capture"
    }
   },
+  "/api/v1/captures/{cid}/mlo/air": {
+   "get": {
+    "operationId": "air_imports_api_v1_captures__cid__mlo_air_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/AirReport"
+         },
+         "title": "Response Air Imports Api V1 Captures  Cid  Mlo Air Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Air Imports"
+   },
+   "post": {
+    "operationId": "air_upload_api_v1_captures__cid__mlo_air_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "origin",
+      "required": false,
+      "schema": {
+       "default": "independent",
+       "pattern": "^(independent|ap_local|same_phy)$",
+       "title": "Origin",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "filename",
+      "required": false,
+      "schema": {
+       "default": "capture.pcap",
+       "maxLength": 200,
+       "title": "Filename",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/AirReport"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Air Upload"
+   }
+  },
+  "/api/v1/captures/{cid}/mlo/evidence": {
+   "get": {
+    "operationId": "capture_evidence_api_v1_captures__cid__mlo_evidence_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "device_id",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Device Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EvidenceReport"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Capture Evidence"
+   }
+  },
   "/api/v1/captures/{cid}/origin": {
    "get": {
     "operationId": "capture_origin_api_v1_captures__cid__origin_get",
@@ -8680,6 +11779,126 @@
     "summary": "Capture Telemetry"
    }
   },
+  "/api/v1/captures/{cid}/wifi/stack": {
+   "get": {
+    "operationId": "stack_imports_api_v1_captures__cid__wifi_stack_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "items": {
+          "$ref": "#/components/schemas/StackCapture"
+         },
+         "title": "Response Stack Imports Api V1 Captures  Cid  Wifi Stack Get",
+         "type": "array"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Stack Imports"
+   },
+   "post": {
+    "operationId": "stack_upload_api_v1_captures__cid__wifi_stack_post",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "cid",
+      "required": true,
+      "schema": {
+       "title": "Cid",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "direction",
+      "required": true,
+      "schema": {
+       "enum": [
+        "tx",
+        "rx"
+       ],
+       "title": "Direction",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "interface",
+      "required": true,
+      "schema": {
+       "title": "Interface",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "boot_id",
+      "required": true,
+      "schema": {
+       "title": "Boot Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "wall_minus_boot_ns",
+      "required": true,
+      "schema": {
+       "title": "Wall Minus Boot Ns",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/StackCapture"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Stack Upload"
+   }
+  },
   "/api/v1/devices": {
    "get": {
     "operationId": "list_devices_api_v1_devices_get",
@@ -8759,6 +11978,99 @@
          "additionalProperties": true,
          "title": "Response Device Evidence Api V1 Devices  Device Id  Evidence Get",
          "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Device Evidence"
+   }
+  },
+  "/api/v1/devices/{device_id}/mlo/evidence": {
+   "get": {
+    "operationId": "device_evidence_api_v1_devices__device_id__mlo_evidence_get",
+    "parameters": [
+     {
+      "in": "path",
+      "name": "device_id",
+      "required": true,
+      "schema": {
+       "title": "Device Id",
+       "type": "string"
+      }
+     },
+     {
+      "in": "query",
+      "name": "wake",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Wake",
+       "type": "boolean"
+      }
+     },
+     {
+      "in": "query",
+      "name": "phy",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Phy"
+      }
+     },
+     {
+      "in": "query",
+      "name": "interface",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Interface"
+      }
+     },
+     {
+      "in": "query",
+      "name": "limit",
+      "required": false,
+      "schema": {
+       "default": 10000,
+       "maximum": 20000,
+       "minimum": 1,
+       "title": "Limit",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/EvidenceReport"
         }
        }
       },
@@ -9697,6 +13009,107 @@
      }
     },
     "summary": "Helper Status"
+   }
+  },
+  "/api/v1/mlo/comparisons": {
+   "get": {
+    "operationId": "comparisons_api_v1_mlo_comparisons_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "group",
+      "required": true,
+      "schema": {
+       "maxLength": 80,
+       "minLength": 1,
+       "title": "Group",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Comparisons Api V1 Mlo Comparisons Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Comparisons"
+   }
+  },
+  "/api/v1/mlo/experiments": {
+   "post": {
+    "operationId": "experiment_api_v1_mlo_experiments_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ExperimentRequest-Input"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ExperimentResult"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Experiment"
+   }
+  },
+  "/api/v1/mlo/monitors": {
+   "get": {
+    "operationId": "monitors_api_v1_mlo_monitors_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "additionalProperties": true,
+         "title": "Response Monitors Api V1 Mlo Monitors Get",
+         "type": "object"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Monitors"
    }
   },
   "/api/v1/patches": {

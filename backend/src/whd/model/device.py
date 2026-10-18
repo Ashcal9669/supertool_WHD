@@ -302,6 +302,27 @@ class DeviceSummary(Model):
     last_seen: float | None = None
     present: bool = True
     demo: bool = False
+    active_test_eligible: bool = False
+    active_test_reason: str = "active testing restricted to MT7922"
+
+    def refresh_test_eligibility(self) -> None:
+        """Policy permission is independent of physical presence and interface readiness."""
+        self.active_test_eligible = bool(
+            self.present
+            and not self.demo
+            and self.bus == "pci"
+            and (self.vendor_id, self.product_id) == (0x14C3, 0x0616)
+            and self.driver in ("mt7921e", "mt7921e_git")
+        )
+        self.active_test_reason = (
+            "MT7922 active testing permitted; interface readiness is separate"
+            if self.active_test_eligible
+            else "device is not physically present"
+            if not self.present
+            else "fixture: active hardware testing disabled"
+            if self.demo
+            else "active testing restricted to a bound MT7922 PCI adapter"
+        )
 
 
 class Device(DeviceSummary):

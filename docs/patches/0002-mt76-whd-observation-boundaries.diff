@@ -1,0 +1,272 @@
+--- a/trace.h
++++ b/trace.h
+@@ -291,6 +291,104 @@
+ 			__entry->drop_flags)
+ 	);
+ 
++TRACE_EVENT(whd_mcu_lifecycle,
++	TP_PROTO(struct mt76_dev *dev, const char * stage, u32 cmd, u64 cookie, int seq, int len, int ret),
++	TP_ARGS(dev, stage, cmd, cookie, seq, len, ret),
++	TP_STRUCT__entry(DEV_ENTRY
++		__string(stage, stage)
++		__field(u32, cmd)
++		__field(u64, cookie)
++		__field(int, seq)
++		__field(int, len)
++		__field(int, ret)
++	),
++	TP_fast_assign(DEVICE_ASSIGN;
++		__assign_str(stage);
++		__entry->cmd = cmd;
++		__entry->cookie = cookie;
++		__entry->seq = seq;
++		__entry->len = len;
++		__entry->ret = ret;
++	),
++	TP_printk(DEV_PR_FMT " stage=%s cmd=0x%x cookie=%llu seq=%d len=%d ret=%d", DEV_PR_ARG, __get_str(stage), __entry->cmd, __entry->cookie, __entry->seq, __entry->len, __entry->ret)
++);
++
++TRACE_EVENT(whd_packet_boundary,
++	TP_PROTO(struct mt76_dev *dev, const char * stage, const void * skbaddr, int wcid, int link, int token, int pid),
++	TP_ARGS(dev, stage, skbaddr, wcid, link, token, pid),
++	TP_STRUCT__entry(DEV_ENTRY
++		__string(stage, stage)
++		__field(const void *, skbaddr)
++		__field(int, wcid)
++		__field(int, link)
++		__field(int, token)
++		__field(int, pid)
++	),
++	TP_fast_assign(DEVICE_ASSIGN;
++		__assign_str(stage);
++		__entry->skbaddr = skbaddr;
++		__entry->wcid = wcid;
++		__entry->link = link;
++		__entry->token = token;
++		__entry->pid = pid;
++	),
++	TP_printk(DEV_PR_FMT " stage=%s skbaddr=%p wcid=%d link=%d token=%d pid=%d", DEV_PR_ARG, __get_str(stage), __entry->skbaddr, __entry->wcid, __entry->link, __entry->token, __entry->pid)
++);
++
++TRACE_EVENT(whd_rx_boundary,
++	TP_PROTO(struct mt76_dev *dev, const char * stage, const void * skbaddr, int wcid, int link, int freq, u32 flags),
++	TP_ARGS(dev, stage, skbaddr, wcid, link, freq, flags),
++	TP_STRUCT__entry(DEV_ENTRY
++		__string(stage, stage)
++		__field(const void *, skbaddr)
++		__field(int, wcid)
++		__field(int, link)
++		__field(int, freq)
++		__field(u32, flags)
++	),
++	TP_fast_assign(DEVICE_ASSIGN;
++		__assign_str(stage);
++		__entry->skbaddr = skbaddr;
++		__entry->wcid = wcid;
++		__entry->link = link;
++		__entry->freq = freq;
++		__entry->flags = flags;
++	),
++	TP_printk(DEV_PR_FMT " stage=%s skbaddr=%p wcid=%d link=%d freq=%d flags=0x%x", DEV_PR_ARG, __get_str(stage), __entry->skbaddr, __entry->wcid, __entry->link, __entry->freq, __entry->flags)
++);
++
++/* Raw bytes only for exact, audited identity TLVs. Unknown/security TLVs never enter this event. */
++TRACE_EVENT(whd_mcu_tlv,
++	TP_PROTO(struct mt76_dev *dev, u32 cmd, u64 cookie, u16 tag, u16 offset, const u8 *data, u16 len),
++	TP_ARGS(dev, cmd, cookie, tag, offset, data, len),
++	TP_STRUCT__entry(DEV_ENTRY
++		__field(u32, cmd) __field(u64, cookie) __field(u16, tag) __field(u16, offset)
++		__dynamic_array(u8, bytes, len)
++	),
++	TP_fast_assign(DEVICE_ASSIGN;
++		__entry->cmd = cmd; __entry->cookie = cookie; __entry->tag = tag; __entry->offset = offset;
++		memcpy(__get_dynamic_array(bytes), data, len);
++	),
++	TP_printk(DEV_PR_FMT " cmd=0x%x cookie=%llu tag=%u offset=%u hex=%s", DEV_PR_ARG,
++		__entry->cmd, __entry->cookie, __entry->tag, __entry->offset,
++		__print_hex_str(__get_dynamic_array(bytes), __get_dynamic_array_len(bytes)))
++);
++
++TRACE_EVENT(whd_rx_descriptor,
++	TP_PROTO(struct mt76_dev *dev, const void *skbaddr, u32 rxd0, u32 rxd1, u32 rxd2, u32 rxd3, u32 rxd4),
++	TP_ARGS(dev, skbaddr, rxd0, rxd1, rxd2, rxd3, rxd4),
++	TP_STRUCT__entry(DEV_ENTRY
++		__field(const void *, skbaddr) __field(u32, rxd0) __field(u32, rxd1)
++		__field(u32, rxd2) __field(u32, rxd3) __field(u32, rxd4)
++	),
++	TP_fast_assign(DEVICE_ASSIGN;
++		__entry->skbaddr = skbaddr; __entry->rxd0 = rxd0; __entry->rxd1 = rxd1;
++		__entry->rxd2 = rxd2; __entry->rxd3 = rxd3; __entry->rxd4 = rxd4;
++	),
++	TP_printk(DEV_PR_FMT " skbaddr=%p rxd0=0x%x rxd1=0x%x rxd2=0x%x rxd3=0x%x rxd4=0x%x",
++		DEV_PR_ARG, __entry->skbaddr, __entry->rxd0, __entry->rxd1, __entry->rxd2, __entry->rxd3, __entry->rxd4)
++);
++
+ #endif
+ 
+ #undef TRACE_INCLUDE_PATH
+--- a/mcu.c
++++ b/mcu.c
+@@ -4,6 +4,41 @@
+  */
+ 
+ #include "mt76.h"
++#include "trace.h"
++#include <linux/unaligned.h>
++
++/* Layouts audited in mt76_connac_mcu.h and mt7925/mcu.h of this source tree.
++ * No key, unknown-TLV, firmware-memory, or response payload is recorded.
++ */
++static void mt76_whd_mcu_identity(struct mt76_dev *dev, struct sk_buff *skb,
++				 int cmd, u64 cookie)
++{
++	u16 id = cmd & 0xffff, off, tag, len;
++	const u8 *p;
++	bool safe;
++
++	if (!trace_whd_mcu_tlv_enabled() || !(cmd & 0x20000))
++		return;
++	if (id != 1 && id != 2 && id != 3 && id != 0x27)
++		return;
++	off = id == 3 ? 8 : 4;
++	while (off + 4 <= skb_headlen(skb)) {
++		p = skb->data + off;
++		tag = get_unaligned_le16(p);
++		len = get_unaligned_le16(p + 2);
++		if (len < 4 || off + len > skb_headlen(skb))
++			break;
++		safe = (id == 1 && tag == 0 && len == 12) ||
++		       (id == 2 && tag == 0 && len == 32) ||
++		       (id == 3 && tag == 0 && len == 20) ||
++		       (id == 3 && tag == 32 && len == 28) ||
++		       (id == 0x27 && tag == 0 && len == 24);
++		if (safe)
++			trace_whd_mcu_tlv(dev, cmd, cookie, tag, off, p, len);
++		off += len;
++	}
++}
++
+ 
+ struct sk_buff *
+ __mt76_mcu_msg_alloc(struct mt76_dev *dev, const void *data,
+@@ -76,12 +111,16 @@
+ 	unsigned int retry = 0;
+ 	struct sk_buff *orig_skb = NULL;
+ 	unsigned long expires;
+-	int ret, seq;
++	u64 whd_cookie = ktime_get_boottime_ns();
++	int whd_len = skb->len;
++	int ret, seq = -1;
+ 
+ 	if (ret_skb)
+ 		*ret_skb = NULL;
+ 
+ 	mutex_lock(&dev->mcu.mutex);
++	trace_whd_mcu_lifecycle(dev, "start", cmd, whd_cookie, seq, whd_len, 0);
++	mt76_whd_mcu_identity(dev, skb, cmd, whd_cookie);
+ 
+ 	if ((mt76_is_mmio(dev) && atomic_read(&dev->bus_hung)) ||
+ 	    (mt76_is_sdio(dev) && test_bit(MT76_RESET, &dev->phy.state) &&
+@@ -132,6 +171,7 @@
+ 
+ 
+ out:
++	trace_whd_mcu_lifecycle(dev, "done", cmd, whd_cookie, seq, whd_len, ret);
+ 	dev_kfree_skb(orig_skb);
+ 	mutex_unlock(&dev->mcu.mutex);
+ 
+--- a/mt7925/pci_mac.c
++++ b/mt7925/pci_mac.c
+@@ -56,6 +56,7 @@
+ 	t->mlo_diag_pid = pid;
+ 	mt7925_mac_write_txwi(mdev, txwi_ptr, tx_info->skb, wcid, key,
+ 			      pid, qid, 0);
++	trace_whd_packet_boundary(mdev, "txd", tx_info->skb, wcid->idx, wcid->link_id, id, pid);
+ 	if (unlikely(mt76_mlo_diag_trace)) {
+ 		struct mt792x_bss_conf *mconf = NULL;
+ 		struct mt76_phy *dma_phy = mt76_dev_phy(mdev, t->phy_idx);
+--- a/mt7925/mac.c
++++ b/mt7925/mac.c
+@@ -487,6 +487,7 @@
+ 	int idx;
+ 
+ 	memset(status, 0, sizeof(*status));
++	trace_whd_rx_descriptor(&dev->mt76, skb, le32_to_cpu(rxd[0]), rxd1, rxd2, rxd3, rxd4);
+ 
+ 	if (!test_bit(MT76_STATE_RUNNING, &mphy->state))
+ 		return -EINVAL;
+@@ -1688,6 +1689,8 @@
+ 				       wcid ? wcid->link_id : -1, attempts,
+ 				       tx_status, !!txwi);
+ 
++			if (txwi && txwi->skb && wcid)
++				trace_whd_packet_boundary(mdev, "tx_free", txwi->skb, wcid->idx, wcid->link_id, msdu, txwi->mlo_diag_pid);
+ 			mt7925_txwi_free(dev, txwi, sta, wcid, &free_list);
+ 		}
+ 	}
+--- a/mac80211.c
++++ b/mac80211.c
+@@ -5,6 +5,7 @@
+ #include <linux/sched.h>
+ #include <linux/of.h>
+ #include "mt76.h"
++#include "trace.h"
+ 
+ #define CHAN2G(_idx, _freq) {			\
+ 	.band = NL80211_BAND_2GHZ,		\
+@@ -1321,7 +1322,7 @@
+ }
+ 
+ static void
+-mt76_check_ccmp_pn(struct sk_buff *skb)
++mt76_check_ccmp_pn(struct mt76_dev *dev, struct sk_buff *skb)
+ {
+ 	struct mt76_rx_status *status = (struct mt76_rx_status *)skb->cb;
+ 	struct mt76_wcid *wcid = status->wcid;
+@@ -1368,6 +1369,7 @@
+ 	ret = memcmp(status->iv, wcid->rx_key_pn[security_idx],
+ 		     sizeof(status->iv));
+ 	if (ret <= 0) {
++		trace_whd_rx_boundary(dev, "pn_drop", skb, wcid->idx, wcid->link_id, status->freq, status->flag);
+ 		if (unlikely(READ_ONCE(mt76_mlo_diag_trace)))
+ 			printk(KERN_INFO
+ 			      "MLO_RX_PN_DROP: wcid=%u link=%d security_idx=%d incoming_pn=%02x%02x%02x%02x%02x%02x stored_pn=%02x%02x%02x%02x%02x%02x\n",
+@@ -1391,6 +1393,7 @@
+ 		      status->iv[0], status->iv[1], status->iv[2],
+ 		      status->iv[3], status->iv[4], status->iv[5]);
+ 
++	trace_whd_rx_boundary(dev, "pn_ok", skb, wcid->idx, wcid->link_id, status->freq, status->flag);
+ 	memcpy(wcid->rx_key_pn[security_idx], status->iv, sizeof(status->iv));
+ 
+ 	if (status->flag & RX_FLAG_IV_STRIPPED)
+@@ -1574,7 +1577,11 @@
+ 	while ((skb = __skb_dequeue(frames)) != NULL) {
+ 		struct sk_buff *nskb = skb_shinfo(skb)->frag_list;
+ 
+-		mt76_check_ccmp_pn(skb);
++		mt76_check_ccmp_pn(dev, skb);
++		if (trace_whd_rx_boundary_enabled()) {
++			struct mt76_rx_status *s = (void *)skb->cb;
++			trace_whd_rx_boundary(dev, "mac80211_rx", skb, s->wcid ? s->wcid->idx : -1, s->wcid ? s->wcid->link_id : -1, s->freq, s->flag);
++		}
+ 		skb_shinfo(skb)->frag_list = NULL;
+ 		mt76_rx_convert(dev, skb, &hw, &sta);
+ 		ieee80211_rx_list(hw, sta, skb, &list);
+--- a/mt7925/mcu.c
++++ b/mt7925/mcu.c
+@@ -6,6 +6,7 @@
+ #include <linux/moduleparam.h>
+ #include <crypto/sha2.h>
+ #include "mt7925.h"
++#include "../trace.h"
+ #include "regd.h"
+ #include "mcu.h"
+ #include "mac.h"
+@@ -1064,6 +1065,7 @@
+ 
+ 	rxd = (struct mt7925_mcu_rxd *)skb->data;
+ 
++	trace_whd_mcu_lifecycle(&dev->mt76, "async", rxd->eid, 0, rxd->seq, skb->len, 0);
+ 	switch (rxd->eid) {
+ 	case MCU_UNI_EVENT_HIF_CTRL:
+ 		mt7925_mcu_uni_hif_ctrl_event(dev, skb);

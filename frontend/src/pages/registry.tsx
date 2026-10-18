@@ -7,6 +7,7 @@ import { SystemPage } from "./System";
 import { TimelinePage } from "./Timeline";
 import { TopologyPage } from "./Topology";
 import { VizPage } from "./Viz";
+import { MloPage } from "./Mlo";
 
 export interface PageDef {
   path: string;
@@ -21,6 +22,7 @@ export const pages: PageDef[] = [
   { path: "/timeline", Component: () => <TimelinePage />, nav: "Timeline" },
   { path: "/viz", Component: VizPage, nav: "Visualizations" },
   { path: "/captures", Component: CapturesPage, nav: "Captures" },
+  { path: "/mlo", Component: MloPage, nav: "Wi-Fi evidence" },
   { path: "/diagnostics", Component: DiagnosticsPage, nav: "Diagnostics" },
   { path: "/system", Component: SystemPage, nav: "System" },
 ];

@@ -114,6 +114,7 @@ class _Live:
     stats: CaptureStats = field(default_factory=CaptureStats)
     start_snapshot: dict[str, Any] | None = None
     trace_started: bool = False
+    stopping: bool = False
 
 
 MAC_RE = re.compile(r"\b([0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5})\b")
@@ -214,6 +215,23 @@ class CaptureManager:
                 st.stop_reason = st.stop_reason or "server restarted while capturing"
                 c["stats_json"] = st.model_dump_json()
                 await asyncio.to_thread(self.st.store.capture_upsert, c)
+                art = await asyncio.to_thread(self.st.store.capture_artifact, c["id"], "experiment.json")
+                if art:
+                    try:
+                        experiment = json.loads(art[1])
+                        if experiment.get("status") == "running":
+                            experiment.update(
+                                status="incomplete", error="server restarted while measurement was running"
+                            )
+                            await asyncio.to_thread(
+                                self.st.store.capture_put_artifact,
+                                c["id"],
+                                "experiment.json",
+                                "application/json",
+                                json.dumps(experiment).encode(),
+                            )
+                    except (ValueError, AttributeError):
+                        pass
         self.st.bus.taps.append(self._on_event)
         self.st.bus.sample_taps.append(self._on_sample)
         self._task = asyncio.create_task(self._maintain())
@@ -251,12 +269,75 @@ class CaptureManager:
                     if cfg.device_id in (None, d.id)
                 ],
             }
+            await asyncio.to_thread(
+                self.st.store.capture_put_artifact,
+                cid,
+                "devices_start.json",
+                "application/json",
+                json.dumps(lv.start_snapshot).encode(),
+            )
+            from whd.mlo.provenance import snapshot as provenance_snapshot
+
+            provenance = await asyncio.to_thread(
+                provenance_snapshot,
+                self.st.host,
+                [d for d in (snap.devices if snap else []) if cfg.device_id in (None, d.id)],
+                self.st.events.status() if self.st.events else [],
+                trace_status=await self.st.events.snapshot_trace_status() if self.st.events else None,
+            )
+            await asyncio.to_thread(
+                self.st.store.capture_put_artifact,
+                cid,
+                "provenance_start.json",
+                "application/json",
+                json.dumps(provenance, default=str).encode(),
+            )
+            self.live[cid] = lv
+            await self._persist(lv, "running")
             if cfg.trace_events and self.st.events is not None:
                 try:
+                    if self.st.helper:
+                        formats = await asyncio.to_thread(
+                            self.st.helper.call,
+                            "tracefs_events",
+                            15.0,
+                            groups=sorted({spec.split("/")[0] for spec in cfg.trace_events}),
+                            with_format=True,
+                        )
+                        await asyncio.to_thread(
+                            self.st.store.capture_put_artifact,
+                            cid,
+                            "trace-formats.json",
+                            "application/json",
+                            json.dumps(formats).encode(),
+                        )
                     await self.st.events.start_trace(cfg.trace_events, 4096, cfg.max_seconds)
                     lv.trace_started = True
                 except RuntimeError as e:
+                    lv.stats.stop_reason = f"trace could not start: {e}"
+                    lv.stopping = True
+                    await self._persist(lv, "error")
+                    self.live.pop(cid, None)
                     raise ValueError(f"trace could not start: {e}") from e
+            trace_start = await self.st.events.snapshot_trace_status() if self.st.events else None
+            provenance["trace_status"] = trace_start
+            provenance["trace_loss"] = trace_start.get("loss") if trace_start else None
+            await asyncio.to_thread(
+                self.st.store.capture_put_artifact,
+                cid,
+                "provenance_start.json",
+                "application/json",
+                json.dumps(provenance, default=str).encode(),
+            )
+            await asyncio.to_thread(
+                self.st.store.capture_put_artifact,
+                cid,
+                "trace-status-start.json",
+                "application/json",
+                json.dumps(
+                    {"capture_owns_trace": lv.trace_started, "status": trace_start}, default=str
+                ).encode(),
+            )
             self.live[cid] = lv
             await self._persist(lv, "running")
         self.st.store.audit("api", "capture_start", {"id": cid, **cfg.model_dump()})
@@ -264,14 +345,33 @@ class CaptureManager:
 
     async def stop_capture(self, cid: str, reason: str = "stopped by user") -> CaptureInfo:
         async with self._lock:
-            lv = self.live.pop(cid, None)
+            lv = self.live.get(cid)
             if lv is None:
                 return await self.info(cid)
             lv.stats.stop_reason = reason
+            lv.stopping = True
             await self._flush(lv)
+            before_stop = await self.st.events.snapshot_trace_status() if self.st.events else None
+            stop_result = None
             if lv.trace_started and self.st.events is not None:
                 with contextlib.suppress(Exception):
-                    await self.st.events.stop_trace()
+                    stop_result = await self.st.events.stop_trace()
+            after_stop = self.st.events.trace_status() if self.st.events else None
+            await asyncio.to_thread(
+                self.st.store.capture_put_artifact,
+                cid,
+                "trace-status-end.json",
+                "application/json",
+                json.dumps(
+                    {
+                        "capture_owns_trace": lv.trace_started,
+                        "before_stop": before_stop,
+                        "after_stop": after_stop,
+                        "stop_result": stop_result,
+                    },
+                    default=str,
+                ).encode(),
+            )
             stopped = boottime_ns()
             snap = self.st.inventory.snapshot
             end_snapshot = {
@@ -283,6 +383,22 @@ class CaptureManager:
                 ],
             }
             store = self.st.store
+            from whd.mlo.provenance import snapshot as provenance_snapshot
+
+            provenance = await asyncio.to_thread(
+                provenance_snapshot,
+                self.st.host,
+                [d for d in (snap.devices if snap else []) if lv.cfg.device_id in (None, d.id)],
+                self.st.events.status() if self.st.events else [],
+                trace_status=after_stop,
+            )
+            await asyncio.to_thread(
+                store.capture_put_artifact,
+                cid,
+                "provenance_end.json",
+                "application/json",
+                json.dumps(provenance, default=str).encode(),
+            )
             await asyncio.to_thread(
                 store.capture_put_artifact,
                 cid,
@@ -305,12 +421,15 @@ class CaptureManager:
             await self._persist(
                 lv, "expired" if "limit" in reason or "duration" in reason else "stopped", stopped
             )
+            self.live.pop(cid, None)
         self.st.store.audit("api", "capture_stop", {"id": cid, "reason": reason})
         return await self.info(cid)
 
     # ----------------------------------------------------------- collection
     def _on_event(self, e: Event) -> None:
         for lv in self.live.values():
+            if lv.stopping:
+                continue
             if not lv.flt.matches(e):
                 continue
             lv.seq += 1
@@ -340,6 +459,8 @@ class CaptureManager:
 
     def _on_sample(self, smp: TelemetrySample) -> None:
         for lv in self.live.values():
+            if lv.stopping:
+                continue
             if not lv.cfg.include_telemetry:
                 continue
             if lv.cfg.device_id and smp.device_id != lv.cfg.device_id:
@@ -425,7 +546,17 @@ class CaptureManager:
         lv = self.live.get(cid)
         if lv:
             await self._flush(lv)
-        return await asyncio.to_thread(self.st.store.capture_events, cid)
+        events = await asyncio.to_thread(self.st.store.capture_events, cid)
+        # Immutable sidecar imports retain their own provenance and do not rewrite native capture events.
+        for meta in await asyncio.to_thread(self.st.store.capture_artifacts, cid):
+            if meta["name"].startswith("stack-") and meta["name"].endswith(".json"):
+                saved = await self.artifact_json(cid, meta["name"])
+                if saved:
+                    for observation in saved.get("events", []):
+                        event = Event.model_validate(observation)
+                        event.id = len(events) + 1
+                        events.append(event)
+        return sorted(events, key=lambda event: (event.data.get("boot_id", ""), event.ts_boottime_ns))
 
     async def delete(self, cid: str) -> None:
         if cid in self.live:
@@ -497,7 +628,7 @@ class CaptureManager:
                 "application/x-ndjson",
                 "\n".join(t.model_dump_json() for t in imp.telemetry).encode(),
             )
-        for n, (ct, data) in arts.items():
+        for n, (ct, data) in (arts | imp.artifacts).items():
             await asyncio.to_thread(store.capture_put_artifact, cid, n, ct, data)
         store.audit(
             "api",
@@ -549,11 +680,136 @@ class CaptureManager:
             return red.text(s) if red else s
 
         files: dict[str, bytes] = {}
-        events_jsonl = "\n".join(e.model_dump_json() for e in evs) + "\n"
-        files["events.jsonl"] = R(events_jsonl).encode()
-        files["events.csv"] = R(events_to_csv(evs)).encode()
-        files["trace.txt"] = R(events_to_trace_text(evs)).encode()
+        omitted_artifacts: dict[str, str] = {}
+        sanitized_artifacts: list[str] = []
+
+        def masked_json(blob: bytes) -> bytes:
+            def clean(value: Any) -> Any:
+                if isinstance(value, dict):
+                    return {
+                        R(k): "[raw bytes omitted from MAC-masked export]"
+                        if k == "hex" or k.endswith("_hex")
+                        else clean(v)
+                        for k, v in value.items()
+                    }
+                if isinstance(value, list):
+                    return [clean(v) for v in value]
+                if isinstance(value, str):
+                    return re.sub(r"\b(?:hex|raw_bytes|payload)=\S+", "raw_bytes=[omitted]", R(value))
+                return value
+
+            return json.dumps(clean(json.loads(blob)), default=str).encode()
+
+        exported_events = (
+            [Event.model_validate_json(masked_json(e.model_dump_json().encode())) for e in evs]
+            if redact
+            else evs
+        )
+        events_jsonl = "\n".join(e.model_dump_json() for e in exported_events) + "\n"
+        files["events.jsonl"] = events_jsonl.encode()
+        files["events.csv"] = events_to_csv(exported_events).encode()
+        files["trace.txt"] = events_to_trace_text(exported_events).encode()
         files["telemetry.jsonl"] = R("\n".join(s.model_dump_json() for s in tel) + "\n").encode()
+        # Include capture-time artifacts, never substitute today's provenance for an imported run.
+        for meta in await asyncio.to_thread(self.st.store.capture_artifacts, cid):
+            name = meta["name"]
+            art = await asyncio.to_thread(self.st.store.capture_artifact, cid, name)
+            if art:
+                if redact and not art[0].startswith(("application/json", "text/", "application/x-ndjson")):
+                    omitted_artifacts[name] = (
+                        "binary artifact cannot be MAC-masked; request an explicitly unredacted export"
+                    )
+                    continue
+                if redact and art[0].startswith("application/json"):
+                    try:
+                        files[name] = masked_json(art[1])
+                        sanitized_artifacts.append(name)
+                    except (UnicodeDecodeError, ValueError):
+                        omitted_artifacts[name] = "unreadable JSON cannot be MAC-masked"
+                else:
+                    files[name] = R(art[1].decode()).encode() if red else art[1]
+        from whd.mlo.definitions import mcu_ids
+        from whd.mlo.report import analyze as analyze_mlo
+        from whd.mlo.timeline import Collectors
+
+        formats = await self.artifact_json(cid, "trace-formats.json")
+        recorded_experiment = await self.artifact_json(cid, "experiment.json")
+        if isinstance(recorded_experiment, dict):
+            from whd.mlo.experiments import recorded_analysis
+
+            analysis_bytes = json.dumps(recorded_analysis(recorded_experiment), default=str).encode()
+            files["mlo/experiment-analysis.json"] = masked_json(analysis_bytes) if redact else analysis_bytes
+
+        from whd.model.device import Device
+
+        captured_devices = (await self.artifact_json(cid, "devices_start.json") or {}).get("devices", [])
+        reports = [
+            analyze_mlo(
+                evs,
+                did,
+                info.mode,
+                cid,
+                Collectors.from_formats(formats),
+                device=next((Device.model_validate(d) for d in captured_devices if d.get("id") == did), None),
+            ).model_dump(mode="json")
+            for did in sorted({e.device_id for e in evs if e.device_id})
+        ]
+        reports_bytes = json.dumps(reports, default=str).encode()
+        files.setdefault("mlo/evidence.json", masked_json(reports_bytes) if redact else reports_bytes)
+        files.setdefault("mlo/definitions.json", json.dumps(mcu_ids()).encode())
+        from pathlib import Path
+
+        files.setdefault(
+            "mlo/identity-tlv-decoder.py", (Path(__file__).resolve().parents[1] / "mlo/mcu.py").read_bytes()
+        )
+        decoder_hashes = {}
+        for decoder in (
+            "air",
+            "stack_pcap",
+            "timeline",
+            "packets",
+            "rx",
+            "rx_layout",
+            "fwid",
+            "mcu",
+            "transport",
+            "tx_observation",
+            "lifetime",
+            "kv",
+            "models",
+            "state",
+            "mask",
+            "definitions",
+            "report",
+            "privacy",
+        ):
+            name = f"analysis/decoders/{decoder}.py"
+            # Retain imported analysis sources separately when current reanalysis uses another decoder.
+            source_path = Path(__file__).resolve().parents[1] / f"mlo/{decoder}.py"
+            if not source_path.is_file():
+                continue  # optional decoder not present in this checkout
+            blob = source_path.read_bytes()
+            if name in files and files[name] != blob:
+                files[f"imported-{name}"] = files[name]
+            files[name] = blob
+            decoder_hashes[name] = hashlib.sha256(blob).hexdigest()
+        current_definitions = "analysis/definitions/mcu_ids.json"
+        definitions_blob = json.dumps(mcu_ids()).encode()
+        if current_definitions in files and files[current_definitions] != definitions_blob:
+            files[f"imported-{current_definitions}"] = files[current_definitions]
+        files[current_definitions] = definitions_blob
+        decoder_hashes[current_definitions] = hashlib.sha256(definitions_blob).hexdigest()
+        definition_name = "analysis/decoder-manifest.json"
+        if definition_name in files:
+            files[f"imported-{definition_name}"] = files[definition_name]
+        files[definition_name] = json.dumps(
+            {
+                "whd_version": __version__,
+                "files": decoder_hashes,
+                "scope": "export-time analysis definitions; capture-time provenance and imported reports retain their original sources",
+                "source_to_loaded_build_match": "unverified",
+            }
+        ).encode()
         for name in ("devices_start.json", "devices_end.json"):
             art = await asyncio.to_thread(self.st.store.capture_artifact, cid, name)
             if art:
@@ -597,7 +853,7 @@ class CaptureManager:
                 await asyncio.to_thread(self.st.store.audit_log, 100), indent=1, default=str
             ).encode()
         for k, v in (extra or {}).items():
-            files[k] = R(v.decode()).encode() if red else v
+            files[k] = masked_json(v) if red and k.endswith(".json") else R(v.decode()).encode() if red else v
         demo = info.mode == "demo" or (not imported and self.st.settings.mode == "demo")
         files["README.txt"] = (
             "WHD diagnostic bundle\n=====================\n"
@@ -626,6 +882,8 @@ class CaptureManager:
             "capture": info.model_dump(mode="json"),
             "demo": demo,
             "redacted_macs": redact,
+            "omitted_artifacts": omitted_artifacts,
+            "sanitized_artifacts": sanitized_artifacts,
             "mac_map_size": len(red.map) if red else 0,
             "files": {
                 k: {"bytes": len(v), "sha256": hashlib.sha256(v).hexdigest()}

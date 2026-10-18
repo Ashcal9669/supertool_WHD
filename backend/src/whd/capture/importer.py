@@ -74,6 +74,7 @@ class Imported:
     warnings: list[str] = field(default_factory=list)
     skipped_lines: int = 0
     trace_inventory: list[str] = field(default_factory=list)
+    artifacts: dict[str, tuple[str, bytes]] = field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------------------- detection
@@ -504,6 +505,57 @@ def parse_bundle(data: bytes, group_hint: str | None) -> Imported:
         "demo": manifest.get("demo"),
         "redacted_macs": manifest.get("redacted_macs"),
     }
+    artifacts = {}
+    core = {
+        "events.jsonl",
+        "events.csv",
+        "trace.txt",
+        "telemetry.jsonl",
+        "README.txt",
+        "manifest.json",
+        "origin.json",
+    }
+    for name, blob in files.items():
+        if name in core:
+            continue
+        meta = (manifest.get("files") or {}).get(name, {})
+        digest = meta.get("sha256") if isinstance(meta, dict) else None
+        if digest and hashlib.sha256(blob).hexdigest() != digest:
+            warnings.append(f"artifact {name} not retained: checksum mismatch")
+            continue
+        mime = (
+            "application/json"
+            if name.endswith(".json")
+            else "application/vnd.tcpdump.pcap"
+            if name.endswith((".pcap", ".cap"))
+            else "text/x-python"
+            if name.endswith(".py")
+            else "text/plain"
+            if name.endswith((".txt", ".diff"))
+            else "application/octet-stream"
+        )
+        from whd.mlo.privacy import scrub
+
+        if mime == "application/json":
+            try:
+                parsed = json.loads(blob)
+            except (ValueError, UnicodeDecodeError):
+                warnings.append(f"artifact {name} not retained: JSON could not be validated")
+                continue
+            if scrub(parsed) != parsed:
+                warnings.append(f"artifact {name} not retained: key material or unsafe key payload")
+                continue
+        retained_name = (
+            "imported-" + name
+            if name in ("system.json", "sources.json", "audit.json", "inventory_now.json")
+            else name
+        )
+        artifacts[retained_name] = (mime, blob)
+        if retained_name != name:
+            origin.setdefault("artifact_name_map", {})[name] = retained_name
+    artifacts["imported-manifest.json"] = ("application/json", json.dumps(manifest).encode())
+    if "origin.json" in files:
+        artifacts["imported-origin.json"] = ("application/json", files["origin.json"])
     if "system.json" in files:
         try:
             s = json.loads(files["system.json"])
@@ -527,6 +579,7 @@ def parse_bundle(data: bytes, group_hint: str | None) -> Imported:
         warnings=warnings,
         skipped_lines=skipped,
         trace_inventory=trace_inv,
+        artifacts=artifacts,
     )
 
 

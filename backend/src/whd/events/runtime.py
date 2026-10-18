@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import copy
 import logging
 from pathlib import Path
 from typing import Any
@@ -46,6 +47,7 @@ class EventRuntime:
         self._rescan_handle: asyncio.TimerHandle | None = None
         self._bg: set[asyncio.Future[Any]] = set()
         self.trace: TraceSource | None = None
+        self.last_trace_status: dict[str, Any] | None = None
         self.replay: ReplaySource | None = None
 
     # -------------------------------------------------------------- lifecycle
@@ -162,10 +164,12 @@ class EventRuntime:
         return out
 
     # -------------------------------------------------------------- tracing
-    async def start_trace(self, events: list[str], buffer_kb: int, max_seconds: int) -> dict[str, Any]:
+    async def start_trace(
+        self, events: list[str], buffer_kb: int, max_seconds: int, interface: str | None = None
+    ) -> dict[str, Any]:
         if self.trace is not None and "trace" in self.tasks and not self.tasks["trace"].done():
             raise RuntimeError("a trace session is already running")
-        src = TraceSource(self.ctx, events, buffer_kb, max_seconds)
+        src = TraceSource(self.ctx, events, buffer_kb, max_seconds, interface)
         self.trace = src
         self._start(src, "trace")
         for _ in range(100):
@@ -179,21 +183,49 @@ class EventRuntime:
         return {"started": src.started}
 
     async def stop_trace(self) -> dict[str, Any]:
+        before = await self.snapshot_trace_status()
         t = self.tasks.pop("trace", None)
         src = self.trace
-        self.trace = None
         if t is None:
-            return {"stopped": False}
+            return {"stopped": False, **before}
         t.cancel()
         with contextlib.suppress(BaseException):
             await t
         if src:
             src.status.state = "stopped"
-        return {"stopped": True, "lines": src.lines if src else 0}
+        self.last_trace_status = self.trace_status()
+        self.last_trace_status["active"] = False
+        self.trace = None
+        return {"stopped": True, **self.last_trace_status}
+
+    async def snapshot_trace_status(self) -> dict[str, Any]:
+        """Best-effort read while the owned stream is still alive, before cancellation.
+
+        Old helpers have no loss fields. A cancelled stream may have no final
+        result; a pre-stop sample must not be described as its final result.
+        """
+        src, task = self.trace, self.tasks.get("trace")
+        helper = self.st.host.helper
+        if src and task and not task.done() and helper and src.started:
+            try:
+                reply = await asyncio.to_thread(helper.call, "tracefs_status", 2.0)
+                session = reply.get("whd_session")
+                if (
+                    isinstance(session, dict)
+                    and src.started.get("instance") == "instances/whd"
+                    and src.started.get("started") is not None
+                    and session.get("started") == src.started["started"]
+                ):
+                    src.retain_loss(session)
+            except Exception:
+                pass  # unknown stays unknown; stream result/counters already retained
+        return self.trace_status()
 
     def trace_status(self) -> dict[str, Any]:
         t = self.tasks.get("trace")
         src = self.trace
+        if src is None and self.last_trace_status is not None:
+            return copy.deepcopy(self.last_trace_status)
         return {
             "active": bool(t and not t.done()),
             "events": src.events if src else [],
@@ -201,6 +233,13 @@ class EventRuntime:
             "lines": src.lines if src else 0,
             "detail": src.status.detail if src else None,
             "result": src.result if src else None,
+            "loss": copy.deepcopy(src.loss)
+            if src
+            else {
+                "helper": {"rate_limit_dropped": None, "queue_dropped": None, "total_dropped": None},
+                "kernel": None,
+            },
+            "final_result_available": bool(src and src.result is not None),
         }
 
     # -------------------------------------------------------------- usbmon

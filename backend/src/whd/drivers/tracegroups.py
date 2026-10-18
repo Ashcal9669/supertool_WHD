@@ -16,7 +16,7 @@ from whd.model.device import Device
 # kernel subsystems, not drivers
 CORE_WIRELESS_GROUPS = ("mac80211", "mac80211_msg", "cfg80211")
 CORE_BUS_GROUPS = ("pci", "xhci-hcd", "usbcore")
-CORE_GROUPS = (*CORE_WIRELESS_GROUPS, *CORE_BUS_GROUPS)
+CORE_GROUPS = (*CORE_WIRELESS_GROUPS, *CORE_BUS_GROUPS, "net")
 _MIN_PREFIX = 4  # avoid matching a 2-3 letter module against unrelated groups
 
 

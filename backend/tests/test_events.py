@@ -363,3 +363,14 @@ def test_usbmon_parse_and_aggregate(ctx: Ctx) -> None:
     for i in range(40):
         um.handle_line(f"t {5000 + i} C Bi:2:003:5 -71 0")
     assert um.suppressed == 20  # flush() reset the budget to 20 events/s; 40 errors -> 20 suppressed
+
+
+def test_nl80211_keeps_boot_local_wireless_interface_identity() -> None:
+    *_, data = decode_event(
+        genl(
+            C.NL80211_CMD_CONNECT,
+            nla_u32(C.NL80211_ATTR_IFINDEX, 12),
+            nla(C.NL80211_ATTR_WDEV, struct.pack("=Q", 0x10000000002)),
+        )
+    )
+    assert data["wdev"] == 0x10000000002

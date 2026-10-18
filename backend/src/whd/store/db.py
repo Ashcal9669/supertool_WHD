@@ -290,6 +290,23 @@ class Store:
                         break
         return out
 
+    def query_unattributed_context(self, anchor_id: int, limit: int = 1000) -> list[Event]:
+        """Bounded neighboring observations; never infer ownership from proximity.
+
+        Force the primary-key range so a large NULL-device index cannot turn
+        this context read into a scan of unrelated boots or the entire store.
+        """
+        if anchor_id <= 0:
+            return []
+        limit = max(1, min(limit, 1000))
+        with self.lock:
+            rows = self.conn.execute(
+                "SELECT json FROM events NOT INDEXED WHERE id > ? AND id <= ? "
+                "AND device_id IS NULL ORDER BY id DESC LIMIT ?",
+                (max(0, anchor_id - 20000), anchor_id, limit),
+            ).fetchall()
+        return [Event.model_validate_json(row[0]) for row in rows]
+
     def event_count(self) -> int:
         with self.lock:
             return int(self.conn.execute("SELECT COUNT(*) FROM events").fetchone()[0])

@@ -46,3 +46,20 @@ async def test_live_wireless_errors(usb_client: httpx.AsyncClient) -> None:
     assert r.status_code == 200
     kinds = {n["kind"] for n in r.json()["nodes"]}
     assert {"usb_host", "usb_device", "usb_interface", "driver", "phy", "netdev"} <= kinds
+
+
+async def test_failed_station_query_is_unknown_not_disconnected(
+    usb_client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Prime inventory before failing the fresh station query.
+    await usb_client.get("/api/v1/devices")
+
+    def failed_stations(self: object, ifindex: int) -> list[object]:
+        raise OSError("fixture station query failed")
+
+    monkeypatch.setattr("whd.platform.nl80211.client.Nl80211.stations", failed_stations)
+    r = await usb_client.get("/api/v1/devices/usb:000000000:0e8d:7961/wireless/live")
+    assert r.status_code == 200
+    (interface,) = r.json()["interfaces"]
+    assert interface["connected"] is None
+    assert interface["errors"]["stations"] == "fixture station query failed"

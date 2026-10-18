@@ -9,6 +9,7 @@ import { PowerTab } from "./PowerTab";
 import { WirelessTab } from "./WirelessTab";
 import { LivePhyTab } from "./LivePhyTab";
 import { Mt76Tab } from "./Mt76Tab";
+import { MloEvidenceTab } from "./MloEvidenceTab";
 import { TimelinePage } from "../pages/Timeline";
 
 export interface DeviceTab {
@@ -26,6 +27,7 @@ export const deviceTabs: DeviceTab[] = [
   { id: "live", label: "Live PHY", Component: LivePhyTab, when: (d) => d.present && d.netdevs.length > 0 },
   { id: "mt76", label: "mt76", Component: Mt76Tab, when: (d) => d.present && !!(d.extensions as Record<string, unknown>)?.mt76 },
   { id: "interfaces", label: "Interfaces", Component: InterfacesTab },
+  { id: "mlo", label: "Wi-Fi evidence", Component: MloEvidenceTab },
   { id: "power", label: "Power", Component: PowerTab },
   { id: "events", label: "Events", Component: ({ d }) => <TimelinePage deviceId={d.id} /> },
   { id: "evidence", label: "Evidence", Component: EvidenceTab },

@@ -1,0 +1,56 @@
+{
+  "source_revision": "956a6e53840205189b23cfdb87f111ceb97cb40d",
+  "baseline": "standalone unpatched recorded source snapshot identified by source hashes; not an ordered patch series",
+  "source_sha256": {
+    "mt76.h": "4be32e9db1207b4ac03226fab463e7108b1963946143d02cd6276fe724e625f8",
+    "trace.h": "2e860057748ddf95fd308d00bd136296be9e18d2fc285c9084afa6b5a18492c5",
+    "mt7925/mac.c": "a121881d1f388bc97c26a296d5e4fc786327795247408280faac2e4a66b0a0b3",
+    "mt7925/pci_mac.c": "a4d9f84953c38355fd30fb8209f53801939a2842c9dcf1ea6c9ef9f384d61105"
+  },
+  "patched_sha256": {
+    "mt76.h": "29f7e7d6a02e99614a40a2591a9aa957f35b5b5ece045b7d382a949dafd6a083",
+    "trace.h": "e2f706e413e5121a05c4cd5c050784e9c088ec79d167b3e132ec3b5b26a0fcd7",
+    "mt7925/mac.c": "ef997643e947e3de3978269b7a57532baf9385d90cb2b48216c3882bc9ce1403",
+    "mt7925/pci_mac.c": "796ca3dd1ee766092d9b70618f72a0eb229fdb545ca03a4003759018ec6d6df0",
+    "mt7925/whd_tx_fields.h": "39770bd11e01636c03ea952aa5ad9f005f4cfe95279acf9bbedbcc3f9449beee"
+  },
+  "layout_sha256": {
+    "mt76_connac3_mac.h": "65f970c7a5cd1868b047ce536710f0b103ea31d5f7dd7c9456b109fda204ecd2",
+    "mt7925/mac.h": "df86c480aae92400e8b9aab55997d6643ec9b118a07387230ed0b5c6901484eb",
+    "mt7925/pci.c": "6a077703e02e614a018a1863e646b4d02a597db9e29b9cd5dc38dcc1a99c209b"
+  },
+  "patch_sha256": "ee5d43d27fb39eec52766dd76e0068f3d956cc1086969f65b7c4fcb98b59ec38",
+  "objects_compiled": [
+    "trace.o",
+    "mt7925/mac.o",
+    "mt7925/pci_mac.o"
+  ],
+  "object_sha256": {
+    "trace.o": "f8243c5ea9d2b1f0b1df8287a298315b57d8a4ac50481a42a176a74e34319c99",
+    "mt7925/mac.o": "e0bcfe5b413619edbe1113ae06925ab311f50592dc93c0f8a1c52c86cb5c9c12",
+    "mt7925/pci_mac.o": "7d8c0540e9bcc1645ab9f1cb8e35165535c9de21b1942fb0e32203a70cfe0442"
+  },
+  "matches_loaded_build": null,
+  "loaded_on_hardware": false,
+  "module_link_performed": false,
+  "build_id_equivalence": "unknown",
+  "kernel_headers": "recorded 7.3.0-rc5 source headers read-only; direct compiler calls with saved kernel flags and explicit -Werror",
+  "limits": [
+    "no association/link lifetime or token/PID/skb lineage",
+    "descriptor snapshots, not DMA submission, RF/AP reception or delivery",
+    "MAC TXS records only; MCU TX_DONE RAW/MSG not instrumented",
+    "TXS32 prefix; validated 48-byte records omit final16 bytes",
+    "connac3 format0/1 ACK interpretation only; unsupported formats use -1",
+    "source layout file hash matching is independent from loaded Build ID matching",
+    "no new buffer-release or semaphore/credit observations"
+  ],
+  "verification_artifacts": {
+    "macro-profile.json": "882442e51ff985dc877d32e0f0efe1653d79d618d7d3cf8be5cb7be23c719de3",
+    "unit-macro-profile.txt": "7db854a986925d9040ea4e6cca4193ef4e503cd2d574811e8112cc9af6a19152",
+    "byte-fixtures.json": "c9e3602a7ef27207d06d74d3054212ed8f14afd370bff4d975f6bc94cd578f0d",
+    "test-final.log": "19418ade77fafdb3da7549e0ee0efb7eb77b319aa681d8acd33292823aa321bc",
+    "test-history.log": "281072dde852582d87864c43f8864eb42e4d5a6e847b9f1e4b898623829c8f41",
+    "build-commands.json": "8f9afae52005ec83aa8f767cccef0037e162954b2833b4cc30e8cd7d7d1bc1a9",
+    "patch-dry-run.log": "650204e3531054b838c2f968fd4718430c3f5454f306b0251348d2b3ada600e8"
+  }
+}

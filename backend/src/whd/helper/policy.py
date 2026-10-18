@@ -7,14 +7,15 @@ the read handler in mt76 sources (read-only review; WHD never modifies them):
                   no device wake (e.g. seq_file over queue structs, debugfs_create_u32 values)
   wakes_device  - takes the mt76 mutex and wakes the chip from runtime power save
                   (mt792x_mutex_acquire -> mt76_connac_pm_wake) before reading driver memory
-  mmio          - performs MMIO register reads on the device
+  mmio          - performs MMIO register accesses on the device (may write query selectors)
   mcu           - sends a firmware (MCU) query command
   never         - write-only/action nodes, or reads that remap/dump firmware memory;
                   the helper refuses these unconditionally
 
 Paths are relative to /sys/kernel/debug/ieee80211/<phy>/. Entries not listed here are
 listed by `debugfs_list` but cannot be read. `mmio` and `mcu` reads require the caller to
-pass `allow=["mmio"|"mcu"]`, which the WHD UI only does after an explicit user confirmation.
+pass the matching tier in `allow` (e.g. `allow=["mmio"]`) to the helper protocol.
+RawViewer does not offer MMIO/MCU reads; its confirmation only enables wakes_device reads.
 
 Tiers were assigned by reviewing the read handlers of the mt76 debugfs files (mt76 core, mt792x, mt7925, plus
 the optional MLO nodes some builds add) on a PCIe adapter. That review did NOT cover USB or SDIO, where a
@@ -44,7 +45,7 @@ MT76_POLICY: list[tuple[str, Tier, str]] = [
     ("mt76/xmit-queues", "passive", "TX/MCU queue ring state (mt792x_queues_read: memory only)"),
     ("mt76/runtime_pm_stats", "passive", "runtime PM counters (mt792x_pm_stats: memory only)"),
     ("mt76/tx_stats", "wakes_device", "TX MSDU/aggregation counters (takes mutex, wakes chip)"),
-    ("mt76/acq", "mmio", "per-AC PLE queue occupancy (mt76_rr of MT_PLE_AC_QEMPTY)"),
+    ("mt76/acq", "mmio", "per-AC PLE queue occupancy (wakes chip; reads MMIO and writes PLE query selector)"),
     ("mt76/txpower_sku", "mcu", "TX power tables (mt7925_get_txpwr_info sends MCU query)"),
     ("mt76/fw_debug", "passive", "firmware debug level setting (memory)"),
     ("mt76/runtime-pm", "passive", "runtime PM enable flag (memory)"),
@@ -61,6 +62,7 @@ MT76_POLICY: list[tuple[str, Tier, str]] = [
     ("mt76/mlo_diag_trace", "passive", "MLO diagnostic trace flag (bool memory)"),
     ("mt76/mlo_bssadd_skip", "passive", "u8 memory"),
     ("mt76/mlo_bssadd_delay_ms", "passive", "u32 memory"),
+    ("mt76/mlo_activate_now", "never", "write-only action: resumes held MLO link activation via wiphy work"),
     ("mt76/mlo_eml_cap_mask", "never", "write-only action node"),
     ("mt76/mlo_auto_steering", "never", "write-only action node"),
     ("mt76/mlo_ptk_probe", "never", "write-only action node"),

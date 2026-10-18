@@ -1,0 +1,12 @@
+{
+  "evidence_kind": "synthetic_source_layout_fixture",
+  "note": "Hand-built identity TLVs from pinned source, not firmware bytes captured on hardware. No loaded BuildID binding.",
+  "layout_provenance": {
+    "file": "mt7925/mcu.h",
+    "file_sha256": "7fa7577d38e080df816d9e32524c930443cb36030b4208fefdf912790bd198fd"
+  },
+  "payloads": [
+    {"cmd": "0x20002", "tag": "26", "hex": "1a001400ff0202005e200001ff01020203aabbcc"},
+    {"cmd": "0x20002", "tag": "2", "hex": "02001000282a00030202010401000000"}
+  ]
+}

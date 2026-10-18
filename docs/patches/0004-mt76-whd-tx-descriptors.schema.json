@@ -1,0 +1,93 @@
+{
+  "tracepoint": "mt76:whd_tx_descriptor",
+  "stages": {
+    "txd": "32 byte PCI TXD after construction, before TXP fill/enqueue; queued descriptor only",
+    "tx_status": "bounded MAC RX TXS record prefix before existing format/PID/WCID filters; source-reported status only"
+  },
+  "fields": [
+    "wiphy_name",
+    "stage",
+    "layout",
+    "sample",
+    "skbaddr",
+    "token",
+    "pid",
+    "wcid",
+    "link",
+    "phy",
+    "qid",
+    "qidx",
+    "wlan",
+    "omac",
+    "tid",
+    "tgid",
+    "protect",
+    "no_ack",
+    "seq",
+    "txs_format",
+    "txs_band",
+    "status_supported",
+    "ack_error",
+    "ack_timeout",
+    "rts_timeout",
+    "queue_timeout",
+    "ba_error",
+    "acked",
+    "observed_len",
+    "captured_len",
+    "generation_known",
+    "d0",
+    "d1",
+    "d2",
+    "d3",
+    "d4",
+    "d5",
+    "d6",
+    "d7",
+    "hex"
+  ],
+  "layouts": [
+    "connac3_txd32",
+    "connac3_txs32_prefix"
+  ],
+  "unknown": "unavailable integer fields -1; generation_known=0; never construct association/link lifetime from token/PID/WCID/sample",
+  "sample": "counter scoped by stage plus boot/device; TXD and TXS counters are distinct namespaces, never a shared packet ID",
+  "hex": "exact 32 descriptor bytes in source byte order, compact %*phN; d0..d7 are little-endian words converted to host integers",
+  "captured_len": 32,
+  "observed_len": {
+    "txd": 32,
+    "tx_status": "validated dispatcher record size 32 or 48; for 48 only first32 retained, last16 unobserved"
+  },
+  "txd": {
+    "token": "mt76_token_consume returned actual allocated token",
+    "pid": "mt76_tx_status_skb_add returned PID; not necessarily a tracked PID",
+    "wcid": "selected host wcid index, including global fallback",
+    "link_phy": "only host peer entry if wcid->sta is available; else -1",
+    "qid": "requested mt76 queue enum, not hardware qidx",
+    "qidx": "hardware queue bits MT_TXD0_Q_IDX",
+    "wlan": "raw descriptor WLAN_IDX; kept separate from host selected wcid",
+    "acked": -1,
+    "seq": "raw descriptor sequence bits; SN_VALID must be checked in raw d3 before treating it as configured sequence; never OTA proof"
+  },
+  "txs": {
+    "token": -1,
+    "skbaddr": "NULL; no borrowed TX buffer/reply join",
+    "pid": "raw descriptor bits MT_TXS3_PID",
+    "wlan": "raw descriptor WCID bits, not resolved host identity",
+    "wcid_link_phy": "read-only RCU snapshot only for supported format and existing bounded-index entry; no peer generation proof",
+    "status_supported": "non-MT7928 connac3 raw TXS format 0 or 1 only",
+    "acked": "-1 if unsupported; otherwise !(d0 & MT_TXS0_ACK_ERROR_MASK), exact existing source interpretation; not network delivery",
+    "ack_error": "FIELD_GET GENMASK(18,16), value 0..7",
+    "ack_timeout": "BIT16",
+    "rts_timeout": "BIT17",
+    "queue_timeout": "BIT18",
+    "ba_error": "BIT22, excluded from ACK_ERROR_MASK",
+    "coverage": "MAC mt7925_rx_check and mt7925_queue_rx_skb only; MCU UNI_EVENT_TX_DONE_RAW/MSG not instrumented"
+  },
+  "source_layout": {
+    "file": "mt76_connac3_mac.h",
+    "sha256": "65f970c7a5cd1868b047ce536710f0b103ea31d5f7dd7c9456b109fda204ecd2",
+    "matched_loaded_build": null
+  },
+  "parent_integration": "Map this new trace name using stage only after recognizing the schema. Decode display fields only when exact source-layout file hash is bound. Before generic packet-path analysis, REMOVE acked for value -1 or unsupported/unmatched layout; do not turn it into false. Do not infer ACK from raw words without layout binding. Retain source-reported ACK, release, semaphore/credit observations and stack delivery as distinct dimensions. No token/skb/pid joins across absent lifetime."
+}

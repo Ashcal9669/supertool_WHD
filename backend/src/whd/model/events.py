@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from whd.model.common import Model
 
@@ -47,6 +47,13 @@ Category = Literal[
 
 
 class Event(Model):
+    @model_validator(mode="before")
+    @classmethod
+    def strip_secrets(cls, value: Any) -> Any:
+        from whd.mlo.privacy import scrub
+
+        return scrub(value)
+
     id: int | None = None
     ts_boottime_ns: int = Field(description="Canonical timestamp: CLOCK_BOOTTIME nanoseconds")
     ts_source: TsSource

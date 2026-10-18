@@ -1,0 +1,45 @@
+{
+  "evidence_class": "synthetic source layout; NOT hardware evidence",
+  "archive": "archived-mt76-source-snapshot",
+  "layout_provenance": {
+    "file": "mt76_connac3_mac.h",
+    "file_sha256": "65f970c7a5cd1868b047ce536710f0b103ea31d5f7dd7c9456b109fda204ecd2",
+    "consumer_file": "mt7925/mac.c",
+    "consumer_file_sha256": "095a0e32d1f9bf426660833391431b979ceb7599143ccdd0f2532efa3f64c483"
+  },
+  "source_sha256": {
+    "mt76_connac3_mac.h": "65f970c7a5cd1868b047ce536710f0b103ea31d5f7dd7c9456b109fda204ecd2",
+    "mt7925/mac.h": "df86c480aae92400e8b9aab55997d6643ec9b118a07387230ed0b5c6901484eb",
+    "mt7925/mac.c": "095a0e32d1f9bf426660833391431b979ceb7599143ccdd0f2532efa3f64c483"
+  },
+  "matches_loaded_build": null,
+  "cases": [
+    {
+      "name": "raw_unicast_no_security_errors",
+      "words": {
+        "rxd0": "0x00000040",
+        "rxd1": "0x88600009",
+        "rxd2": "0x00040000",
+        "rxd3": "0x00014500",
+        "rxd4": "0x00000000"
+      },
+      "expected": {
+        "fw_idx": 9,
+        "desc_band": 1,
+        "key_id": 3,
+        "sec_done": true,
+        "sec_mode": 4,
+        "clm": false,
+        "cm": false,
+        "icv_err": false,
+        "tkip_mic_err": false,
+        "fcs_err": false,
+        "chfreq": 69,
+        "addr_type": 1,
+        "unicast": true,
+        "decrypted_candidate": true,
+        "integrity_ok": true
+      }
+    }
+  ]
+}
