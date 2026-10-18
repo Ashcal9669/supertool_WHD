@@ -25,13 +25,14 @@ class LiveInterface(Model):
     survey: list[SurveyEntry]
     scan: list[ScanBss]
     errors: dict[str, str]
-    connected: bool
+    connected: bool | None
     association_summary: str | None = None
 
 
 class WirelessLive(Model):
     device_id: str
     taken_at: float
+    boot_id: str | None = None
     interfaces: list[LiveInterface]
     other_interfaces_on_wiphy: list[WifiInterface]
     regulatory: list[RegDomain]
@@ -71,7 +72,10 @@ def _capability_summary(dev: Any) -> dict[str, Any]:
 
 def _collect(st: AppState, dev: Any) -> WirelessLive:
     nl = st.host.nl80211()
-    notes: list[str] = ["Scan results are the kernel's cached BSS table; WHD never triggers scans."]
+    notes: list[str] = [
+        "Scan results are the kernel's cached BSS table; WHD never triggers scans.",
+        "nl80211 GET queries may wake the device; power-state effect is unmeasured.",
+    ]
     if nl is None:
         raise HTTPException(409, f"nl80211 unavailable: {st.host.nl80211_error}")
     try:
@@ -107,7 +111,9 @@ def _collect(st: AppState, dev: Any) -> WirelessLive:
                 survey = res  # type: ignore[assignment]
             else:
                 scan = res  # type: ignore[assignment]
-        connected = i.iftype in ("STATION", "P2P_CLIENT") and bool(stations)
+        connected: bool | None = i.iftype in ("STATION", "P2P_CLIENT") and bool(stations)
+        if "stations" in errors:
+            connected = None
         summary = None
         if connected:
             s = stations[0]
@@ -143,6 +149,7 @@ def _collect(st: AppState, dev: Any) -> WirelessLive:
     return WirelessLive(
         device_id=dev.id,
         taken_at=time.time(),
+        boot_id=st.bus.boot_id,
         interfaces=out,
         other_interfaces_on_wiphy=others,
         regulatory=regs,

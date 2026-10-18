@@ -65,10 +65,13 @@ class Host:
     def _open_nl80211(self) -> Nl80211Source:
         raise NotImplementedError
 
+    def _nl_client(self, source: Nl80211Source) -> Nl80211:
+        return Nl80211(source)
+
     def nl80211(self) -> Nl80211 | None:
         if self._nl is None and self._nl_error is None:
             try:
-                self._nl = Nl80211(self._open_nl80211())
+                self._nl = self._nl_client(self._open_nl80211())
             except Nl80211Unavailable as e:
                 self._nl_error = str(e)
         return self._nl

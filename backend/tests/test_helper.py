@@ -84,10 +84,24 @@ def test_debugfs_policy(roots: Roots) -> None:
         with pytest.raises(HelperError) as ei:
             h.debugfs_read(phy="phy0", path=path)
         assert ei.value.code == code, path
-    # explicit allow for the mmio tier (UI requires user confirmation before sending this)
+    # Explicit helper-protocol allow for the mmio tier; RawViewer does not offer it.
     assert h.debugfs_read(phy="phy0", path="mt76/regval", allow=["mmio"])["tier"] == "mmio"
     with pytest.raises(HelperError):
         h.debugfs_read(phy="../phy0", path="mt76/xmit-queues")
+
+
+def test_mlo_activate_now_is_explicitly_never_even_with_allow(roots: Roots) -> None:
+    # The driver's 0200 node has only a write handler that triggers MLO activation.
+    (roots.debugfs / "ieee80211/phy0/mt76/mlo_activate_now").write_text("")
+    h = helper(roots)
+    entry = next(e for e in h.debugfs_list(phy="phy0")["entries"] if e["path"] == "mt76/mlo_activate_now")
+    assert entry["tier"] == "never"
+    assert "write-only" in entry["policy"]
+    assert "activation" in entry["policy"]
+    for allow in ([], ["mmio", "mcu", "never"]):
+        with pytest.raises(HelperError) as ei:
+            h.debugfs_read(phy="phy0", path="mt76/mlo_activate_now", allow=allow)
+        assert ei.value.code == "policy"
 
 
 def test_napi_threaded_read_only_on_pci(roots: Roots) -> None:
@@ -130,6 +144,24 @@ def test_trace_setup_validation(roots: Roots) -> None:
     for bad in ([], ["mt76"], ["../x/y"], ["nosuch/*"], ["mt76/nosuch"], ["a/b/c"]):
         with pytest.raises(HelperError):
             h._trace_setup(bad, 1024)
+
+
+def test_trace_filter_requires_verified_mt7922_and_device_named_format(roots: Roots):
+    h = helper(roots)
+    with pytest.raises(HelperError, match="MT7922"):
+        h._trace_filter("mt76/mac_txdone", "wlan0")
+    p = roots.sys / "class/net/wlan0/device"
+    p.mkdir(parents=True)
+    (p / "vendor").write_text("0x14c3")
+    (p / "device").write_text("0x0616")
+    (p / "driver").symlink_to("/sys/bus/pci/drivers/mt7921e_git")
+    (roots.sys / "class/net/wlan0/phy80211").symlink_to("/sys/class/ieee80211/phy22")
+    fmt = roots.tracefs / "events/mt76/mac_txdone/format"
+    fmt.write_text("field:char wiphy_name[32];\n")
+    assert h._trace_filter("mt76/mac_txdone", "wlan0") == 'wiphy_name == "phy22"'
+    fmt.write_text("field:int value;\n")
+    with pytest.raises(HelperError, match="filter"):
+        h._trace_filter("mt76/mac_txdone", "wlan0")
 
 
 async def test_transport_and_peer_check(roots: Roots, tmp_path: Path) -> None:

@@ -112,6 +112,9 @@ class TraceStart(BaseModel):
     events: list[str] = Field(min_length=1, max_length=256, description="'group/event' or 'group/*'")
     buffer_kb: int = Field(4096, ge=64, le=16384)
     max_seconds: int = Field(600, ge=5, le=24 * 3600)
+    interface: str | None = Field(
+        None, description="verified MT7922 interface required for live device filtering"
+    )
 
 
 @router.get("/trace/available")
@@ -148,7 +151,9 @@ async def trace_start(body: TraceStart, actor: str = Auth, st: AppState = State)
     if st.settings.mode == "demo":
         raise HTTPException(409, "tracing is not available in demo mode")
     try:
-        r = await st.events.start_trace(body.events, body.buffer_kb, body.max_seconds)
+        r = await st.events.start_trace(
+            body.events, body.buffer_kb, body.max_seconds, interface=body.interface
+        )
     except RuntimeError as e:
         raise HTTPException(409, str(e)) from e
     st.store.audit(actor, "trace_start", body.model_dump())

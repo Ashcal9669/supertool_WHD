@@ -1,0 +1,58 @@
+{
+  "source_revision": "956a6e53840205189b23cfdb87f111ceb97cb40d",
+  "base": "standalone unpatched recorded source snapshot identified by source hashes; not an ordered patch series",
+  "patch_sha256": "48a2a2cbbb0d05e8667b4927055ff8a016dde6083f61d3df0b840301e96f23ad",
+  "source_sha256": {
+    "mt76.h": "4be32e9db1207b4ac03226fab463e7108b1963946143d02cd6276fe724e625f8",
+    "trace.h": "2e860057748ddf95fd308d00bd136296be9e18d2fc285c9084afa6b5a18492c5",
+    "mcu.c": "e0c3fc3323c0482afbd3a943676e5091e5832da4a1e2f711303183f886f4c79a",
+    "mt7925/mcu.c": "1f936ef0010373d8573902227345adada9c88a68c399efde83708343c6317f7b",
+    "mt7925/pci_mcu.c": "9569a85ab5888050b4afef34a061d555c41b89835f6ed38c8f1d5ceff3b7d290",
+    "mt7925/mt7925.h": "a1f2132f81ddad454090ad501a8dbcaad61e927fc3d66128eb9aa80c6be56553"
+  },
+  "patched_sha256": {
+    "mt76.h": "fd45c96ed94b4c18377bee1c3198be45dc715d844e8d120c7b30d431a33e257f",
+    "trace.h": "9e39a808bb19e7c1972aaea493e4783a01682feb821850807b8b7f88dec15ad9",
+    "mcu.c": "81f85a827b538fdd9bd7fc193799fcc4c089048497d5d3cc03f75e5a96906d36",
+    "mt7925/mcu.c": "3a8abf7ea324edf48418c2220f0add9e3f33d9b93a33244444a12db818f135d3",
+    "mt7925/pci_mcu.c": "92940793e6aa8c6a945fd6e7226c90c3617d94b4c12ec182f109a979ea2f4504",
+    "mt7925/mt7925.h": "4b03a40c31a2c67090c9397cdf53118d5835c7cbfc682f9e50dd80df194d711a",
+    "mt7925/whd_mcu_safe.h": "47939ad574fb0d9c5fe310c20c72707b695650b0a03f1456a4f26557c6b119e0"
+  },
+  "layout_sha256": {
+    "mt76_connac_mcu.h": "be1b99744a442b30f419d0a214490c7f2189f59695252efa6c52deec87c25107",
+    "mt7925/mcu.h": "7fa7577d38e080df816d9e32524c930443cb36030b4208fefdf912790bd198fd",
+    "mt7925/mt7925.h": "a1f2132f81ddad454090ad501a8dbcaad61e927fc3d66128eb9aa80c6be56553"
+  },
+  "matches_loaded_build": null,
+  "loaded_on_hardware": false,
+  "build_id_equivalence": "unknown",
+  "objects_compiled": [
+    "mcu.o",
+    "trace.o",
+    "mt7925/mcu.o",
+    "mt7925/pci_mcu.o"
+  ],
+  "object_sha256": {
+    "mcu.o": "fc7ae0d556e53264ea31776b783a240fff39ce412ee0596ab2e53b76ed4dc486",
+    "trace.o": "9c67c138948dbc5a35363dffefaeebb30b6f54dd8bea75d78250512f7736d4f0",
+    "mt7925/mcu.o": "8b623580b788fdcbef3bb9cea55d61d33a30202cdfc69121b600967dcdd0a1bf",
+    "mt7925/pci_mcu.o": "384af7eada1737a660d21335c7accc4f4c00592a51ff613a9120dc0079e99ec4"
+  },
+  "kernel_headers": "7.3.0-rc5-mt7927-deps-20261008+ recorded kernel source headers read-only",
+  "limits": [
+    "no source-to-loaded Build ID proof",
+    "no TX/RX lineage, association or link generations",
+    "PCI mt7925 callback only; no ordinary MT7922 transport coverage",
+    "unknown/security commands/events and reserved bytes suppressed",
+    "async cookie/attempt zero; no invented request association",
+    "mcu_ops structure changed: requires coordinated compatible rebuild, never mix loaded modules"
+  ],
+  "verification_artifacts": {
+    "macro-profile.json": "a1bdbf5fe88f4841c3827188a71928122fd9bd61eed163e497646e0a94cc7716",
+    "byte-fixtures.json": "e8f13c28012ae1be5c8ea3e4c64c4d049014825aac54705b44f42c39b9dd9661",
+    "test-final.log": "67b39c26c3e1a35106bca124afd50bcd398c1a3b908c0619fd8f8af8877cc11a",
+    "build-commands.json": "77119943c4c7932025d11105be9c8be4f15653b13bb26a933af71c03df4f3fbb",
+    "patch-dry-run.log": "c234154dc61726a091831566a8ab181604e6ba54a34518f060cd59e97d3f692d"
+  }
+}

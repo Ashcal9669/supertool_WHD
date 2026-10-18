@@ -7,12 +7,14 @@ import { ago, hex } from "../lib/format";
 function DeviceCard({ d }: { d: DeviceSummary }) {
   const ids = d.vendor_id !== null && d.vendor_id !== undefined ? `${hex(d.vendor_id)?.slice(2)}:${hex(d.product_id)?.slice(2)}` : null;
   const opTone = d.operstate === "up" ? "ok" : d.operstate === "down" ? "warn" : "dim";
+  const eligible = d.present && !d.demo && d.active_test_eligible;
+  const reason = d.demo ? "Fixture data; active testing disabled" : !d.present ? "Device absent; active testing disabled" : d.active_test_reason;
   return (
     <Link to={`/device/${encodeURIComponent(d.id)}`} className={`panel block p-3 transition hover:border-accent/60 ${d.present ? "" : "opacity-60"}`}>
       <div className="mb-2 flex items-start gap-2">
         <Badge tone="accent">{d.bus === "pci" ? "PCIe" : d.bus.toUpperCase()}</Badge>
         {d.demo && <Badge tone="demo" title="Fixture data, not live hardware">demo</Badge>}
-        {!d.present && <Badge tone="warn">absent</Badge>}
+        <Badge tone={d.present ? "ok" : "warn"}>{d.present ? "present" : "absent"}</Badge>
         <span className="ml-auto mono text-[11px] text-dim">{d.id}</span>
       </div>
       <h3 className="mb-1 text-[14px] font-semibold leading-tight">{d.title}</h3>
@@ -28,7 +30,10 @@ function DeviceCard({ d }: { d: DeviceSummary }) {
         <span>{d.phys.join(",") || "—"} / {d.netdevs.join(",") || "—"}</span>
         <span className="text-dim">operstate</span>
         <span><Badge tone={opTone}>{d.operstate ?? "n/a"}</Badge></span>
+        <span className="text-dim">active testing</span>
+        <span><Badge tone={eligible ? "ok" : "dim"}>{eligible ? "eligible" : "not eligible"}</Badge></span>
       </div>
+      <p className="mt-2 text-[11px] text-dim">{reason ?? "Active-test policy unavailable"}</p>
       <div className="mt-2 flex flex-wrap gap-1">
         {d.detection.map((r, i) => (
           <Badge key={i} tone={r.strength === "authoritative" ? "ok" : r.strength === "strong" ? "accent" : "warn"} title={r.detail}>

@@ -1,0 +1,34 @@
+{
+  "source_revision": "956a6e53840205189b23cfdb87f111ceb97cb40d",
+  "source_sha256": {
+    "trace.h": "2e860057748ddf95fd308d00bd136296be9e18d2fc285c9084afa6b5a18492c5",
+    "mcu.c": "e0c3fc3323c0482afbd3a943676e5091e5832da4a1e2f711303183f886f4c79a",
+    "mt7925/pci_mac.c": "a4d9f84953c38355fd30fb8209f53801939a2842c9dcf1ea6c9ef9f384d61105",
+    "mt7925/mac.c": "a121881d1f388bc97c26a296d5e4fc786327795247408280faac2e4a66b0a0b3",
+    "mac80211.c": "0c55b20565c050c7d65a9dd1742da0dae8c6501b6ff02e73b907233c48bba982",
+    "mt7925/mcu.c": "1f936ef0010373d8573902227345adada9c88a68c399efde83708343c6317f7b"
+  },
+  "patch_sha256": "44c34950bc8f8237e6f24051cd283850a0e175163f4b040fb2f3ed2fd0bd47d2",
+  "matches_loaded_build": null,
+  "loaded_on_hardware": false,
+  "limits": [
+    "identity TLVs only; key/unknown bytes and response payloads deliberately unrecorded",
+    "mac80211 ingress is not network-stack or userspace delivery"
+  ],
+  "objects_compiled": [
+    "mcu.o",
+    "trace.o",
+    "mac80211.o",
+    "mt7925/mac.o",
+    "mt7925/pci_mac.o",
+    "mt7925/mcu.o"
+  ],
+  "kernel_headers": "7.3.0-rc5-mt7927-deps-20261008+",
+  "tracepoints": [
+    "whd_mcu_lifecycle",
+    "whd_mcu_tlv",
+    "whd_packet_boundary",
+    "whd_rx_boundary",
+    "whd_rx_descriptor"
+  ]
+}

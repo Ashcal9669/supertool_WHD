@@ -73,8 +73,8 @@ export function LivePhyTab({ d }: { d: Device }) {
             </div>
             <div className="grid gap-3 xl:grid-cols-2">
               {joins ? (
-                <Panel title="Connection state machine (event-driven)">
-                  <ConnStateMachine events={events.filter((e) => !e.data || !("ifname" in e.data) || e.data.ifname === i.name)} snapshotConnected={li.connected} />
+                <Panel title="Current connection and historical transitions">
+                  <ConnStateMachine events={events.filter((e) => !e.data || !("ifname" in e.data) || e.data.ifname === i.name)} snapshotConnected={li.connected} snapshotAuthorized={sta?.flags.AUTHORIZED ?? sta?.flags.authorized ?? null} snapshotScope={`boot ${L.boot_id ?? "UNKNOWN"}, interface ${i.name}, ifindex ${i.ifindex}, wdev ${i.wdev ?? "UNKNOWN"}`} />
                 </Panel>
               ) : (
                 <Panel title={`Interface mode: ${mode}`}>

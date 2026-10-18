@@ -30,7 +30,10 @@ export function deriveTransitions(events: WhdEvent[]): Transition[] {
   const out: Transition[] = [];
   let cur: ConnState | null = null;
   let preScan: ConnState | null = null;
+  let lifetime: string | null = null;
   for (const e of [...events].sort((a, b) => a.ts_boottime_ns - b.ts_boottime_ns)) {
+    const scope = `${e.data?.boot_id ?? "unknown boot"}:${e.data?.interface_lifetime ?? e.data?.wdev ?? "unknown interface lifetime"}:${e.data?.ifindex ?? "unknown index"}:${e.data?.ifname ?? "unknown interface"}`;
+    if (scope !== lifetime) { cur = null; preScan = null; lifetime = scope; }
     let s = stateFor(e);
     if (e.kind === "nl80211.new_scan_results" || e.kind === "nl80211.scan_aborted") s = cur === "SCANNING" ? preScan ?? "DISCONNECTED" : null;
     if (!s || s === cur) continue;
@@ -51,12 +54,12 @@ const EDGES: [ConnState, ConnState][] = [
   ["AUTHENTICATING", "DISCONNECTED"], ["ASSOCIATING", "DISCONNECTED"],
 ];
 
-/** Connection state machine driven only by observed events; falls back to the station-dump snapshot. */
-export function ConnStateMachine({ events, snapshotConnected }: { events: WhdEvent[]; snapshotConnected: boolean | null }) {
+/** Fresh station reading establishes current state; saved events are historical observations only. */
+export function ConnStateMachine({ events, snapshotConnected, snapshotAuthorized, snapshotScope }: { events: WhdEvent[]; snapshotConnected: boolean | null; snapshotAuthorized?: boolean | null; snapshotScope?: string }) {
   const transitions = useMemo(() => deriveTransitions(events), [events]);
   const last = transitions[transitions.length - 1];
-  const current: ConnState | null = last?.to ?? (snapshotConnected === null ? null : snapshotConnected ? "ASSOCIATED" : "DISCONNECTED");
-  const lastEdge = last?.from ? `${last.from}->${last.to}` : null;
+  const current: ConnState | null = snapshotConnected === null ? null : snapshotConnected ? snapshotAuthorized === true ? "AUTHORIZED" : "ASSOCIATED" : "DISCONNECTED";
+  const lastEdge = null; // Historical transitions never animate a current operation.
   return (
     <div className="space-y-2">
       <svg viewBox="0 0 760 210" className="w-full" role="img" aria-label="connection state machine">
@@ -93,16 +96,17 @@ export function ConnStateMachine({ events, snapshotConnected }: { events: WhdEve
         })}
       </svg>
       <p className="text-[11px] text-dim">
-        {last ? <>Current state from event <span className="mono">{last.e.kind}</span> at {wallTime(last.e.ts_wall)}.</>
-          : snapshotConnected === null ? "No association events or station data yet."
-          : "No association events observed yet; state taken from the current nl80211 station dump."}
+        {snapshotConnected === null ? (last ? "Current state UNKNOWN: no fresh successful station reading." : "No association events or station data yet.")
+          : <>Current state from fresh nl80211 station reading: {current}. {snapshotConnected && snapshotAuthorized === true ? "Authorization from current station flags." : "Authorization requires a separate observation."}</>}
+        {snapshotScope && <> Scope: {snapshotScope}.</>}
       </p>
       {transitions.length > 0 && (
+        <div><p className="text-[11px] text-dim">Historical transitions — these do not establish current state. Missing interface lifetime is UNKNOWN.</p>
         <ol className="mono max-h-40 overflow-auto text-[11px]">
           {transitions.slice(-12).reverse().map((t, i) => (
-            <li key={i}><span className="text-dim">{wallTime(t.e.ts_wall)}</span> {t.from ?? "?"} → <span className="text-accent">{t.to}</span> <span className="text-dim">({t.e.kind}: {t.e.summary.slice(0, 70)})</span></li>
+            <li key={i}><span className="text-dim">{wallTime(t.e.ts_wall)}</span> {t.from ?? "?"} → <span className="text-accent">{t.to}</span> <span className="text-dim">({t.e.kind}: {t.e.summary.slice(0, 70)}; boot {String(t.e.data?.boot_id ?? "UNKNOWN")}; interface {String(t.e.data?.ifname ?? "UNKNOWN")}; lifetime {String(t.e.data?.interface_lifetime ?? t.e.data?.wdev ?? "UNKNOWN")})</span></li>
           ))}
-        </ol>
+        </ol></div>
       )}
     </div>
   );

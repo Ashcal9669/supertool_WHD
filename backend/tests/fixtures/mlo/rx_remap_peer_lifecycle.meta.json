@@ -1,0 +1,8 @@
+{
+ "source": "real events from a WHD database (read-only)",
+ "id_ranges": [
+  "14400000:14400700"
+ ],
+ "events": 701,
+ "macs_masked": 3
+}

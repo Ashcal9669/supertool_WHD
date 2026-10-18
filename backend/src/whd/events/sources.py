@@ -998,14 +998,35 @@ class TraceSource(Source):
 
     name = "tracefs"
 
-    def __init__(self, ctx: Ctx, events: list[str], buffer_kb: int, max_seconds: int) -> None:
+    def __init__(
+        self, ctx: Ctx, events: list[str], buffer_kb: int, max_seconds: int, interface: str | None = None
+    ) -> None:
         super().__init__(ctx)
         self.events = events
         self.buffer_kb = buffer_kb
         self.max_seconds = max_seconds
+        self.interface = interface
         self.started: dict[str, Any] | None = None
         self.result: dict[str, Any] | None = None
         self.lines = 0
+        self.loss: dict[str, Any] = {
+            "helper": {"rate_limit_dropped": None, "queue_dropped": None, "total_dropped": None},
+            "kernel": None,
+        }
+
+    def retain_loss(self, message: dict[str, Any]) -> None:
+        """Helper counts are cumulative for one stream: repeated samples are not deltas."""
+        loss = message.get("loss")
+        helper_loss = loss.get("helper", {}) if isinstance(loss, dict) else {}
+        for key in ("rate_limit_dropped", "queue_dropped", "total_dropped"):
+            value = helper_loss.get(key) if isinstance(helper_loss, dict) else None
+            if key == "total_dropped" and value is None:
+                value = message.get("dropped")  # legacy helper: split remains unknown
+            if type(value) is int and value >= 0:
+                previous = self.loss["helper"][key]
+                self.loss["helper"][key] = max(previous, value) if previous is not None else value
+        if isinstance(loss, dict) and isinstance(loss.get("kernel"), dict):
+            self.loss["kernel"] = loss["kernel"]
 
     async def run(self) -> None:
         helper = self.ctx.host.helper
@@ -1015,10 +1036,16 @@ class TraceSource(Source):
         clock = "boot"
         offset = 0
         async for msg in helper.stream(
-            "trace_stream", events=self.events, buffer_kb=self.buffer_kb, max_seconds=self.max_seconds
+            "trace_stream",
+            events=self.events,
+            buffer_kb=self.buffer_kb,
+            max_seconds=self.max_seconds,
+            interface=self.interface,
         ):
+            self.retain_loss(msg)
             if "stream_start" in msg:
                 self.started = msg["stream_start"]
+                self.retain_loss(self.started)
                 clock = self.started.get("clock", "boot")
                 for spec in self.started.get("events", []):
                     g, e = spec.split("/")
@@ -1029,6 +1056,8 @@ class TraceSource(Source):
                 continue
             if "result" in msg:
                 self.result = msg["result"]
+                if isinstance(self.result, dict):
+                    self.retain_loss(self.result)
                 return
             for line in msg.get("stream", []):
                 ev = trace_event_from_line(self.ctx.index, line, event_groups, clock, offset)
@@ -1037,7 +1066,7 @@ class TraceSource(Source):
                 self.lines += 1
                 self.ctx.bus.publish(ev)
             if msg.get("dropped"):
-                self.status.detail = f"dropped {msg['dropped']} lines (rate limit)"
+                self.status.detail = f"helper dropped {self.loss['helper']['total_dropped']} lines (cumulative; rate/queue loss separate when available)"
 
 
 # --------------------------------------------------------------------------- replay

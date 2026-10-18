@@ -1,0 +1,358 @@
+--- a/mt76.h
++++ b/mt76.h
+@@ -282,6 +282,41 @@
+ 	dma_addr_t desc_dma;
+ 	struct sk_buff *rx_head;
+ 	struct page_pool *page_pool;
++};
++
++/* Fixed descriptor-only snapshots; no packet bytes or peer lifetime claim. */
++struct mt76_whd_tx_observation {
++	const char *stage;
++	const char *layout;
++	u64 sample;
++	const void * skbaddr;
++	int token;
++	int pid;
++	int wcid;
++	int link;
++	int phy;
++	int qid;
++	int qidx;
++	int wlan;
++	int omac;
++	int tid;
++	int tgid;
++	int protect;
++	int no_ack;
++	int seq;
++	int txs_format;
++	int txs_band;
++	int status_supported;
++	int ack_error;
++	int ack_timeout;
++	int rts_timeout;
++	int queue_timeout;
++	int ba_error;
++	int acked;
++	u32 observed_len;
++	u32 captured_len;
++	u32 words[8];
++	u8 bytes[32];
+ };
+ 
+ struct mt76_mcu_ops {
+--- a/trace.h
++++ b/trace.h
+@@ -291,6 +291,84 @@
+ 			__entry->drop_flags)
+ 	);
+ 
++TRACE_EVENT(whd_tx_descriptor,
++	TP_PROTO(struct mt76_dev *dev, const struct mt76_whd_tx_observation *v),
++	TP_ARGS(dev, v),
++	TP_STRUCT__entry(DEV_ENTRY
++		__string(stage, v->stage)
++		__string(layout, v->layout)
++		__field(u64, sample)
++		__field(const void *, skbaddr)
++		__field(int, token)
++		__field(int, pid)
++		__field(int, wcid)
++		__field(int, link)
++		__field(int, phy)
++		__field(int, qid)
++		__field(int, qidx)
++		__field(int, wlan)
++		__field(int, omac)
++		__field(int, tid)
++		__field(int, tgid)
++		__field(int, protect)
++		__field(int, no_ack)
++		__field(int, seq)
++		__field(int, txs_format)
++		__field(int, txs_band)
++		__field(int, status_supported)
++		__field(int, ack_error)
++		__field(int, ack_timeout)
++		__field(int, rts_timeout)
++		__field(int, queue_timeout)
++		__field(int, ba_error)
++		__field(int, acked)
++		__field(u32, observed_len)
++		__field(u32, captured_len)
++		__field(bool, generation_known)
++		__array(u32, words, 8)
++		__array(u8, bytes, 32)
++	),
++	TP_fast_assign(DEVICE_ASSIGN;
++		__assign_str(stage);
++		__assign_str(layout);
++		__entry->sample = v->sample;
++		__entry->skbaddr = v->skbaddr;
++		__entry->token = v->token;
++		__entry->pid = v->pid;
++		__entry->wcid = v->wcid;
++		__entry->link = v->link;
++		__entry->phy = v->phy;
++		__entry->qid = v->qid;
++		__entry->qidx = v->qidx;
++		__entry->wlan = v->wlan;
++		__entry->omac = v->omac;
++		__entry->tid = v->tid;
++		__entry->tgid = v->tgid;
++		__entry->protect = v->protect;
++		__entry->no_ack = v->no_ack;
++		__entry->seq = v->seq;
++		__entry->txs_format = v->txs_format;
++		__entry->txs_band = v->txs_band;
++		__entry->status_supported = v->status_supported;
++		__entry->ack_error = v->ack_error;
++		__entry->ack_timeout = v->ack_timeout;
++		__entry->rts_timeout = v->rts_timeout;
++		__entry->queue_timeout = v->queue_timeout;
++		__entry->ba_error = v->ba_error;
++		__entry->acked = v->acked;
++		__entry->observed_len = v->observed_len;
++		__entry->captured_len = v->captured_len;
++		__entry->generation_known = false;
++		memcpy(__entry->words, v->words, sizeof(__entry->words));
++		memcpy(__entry->bytes, v->bytes, sizeof(__entry->bytes));
++	),
++	TP_printk(DEV_PR_FMT " stage=%s layout=%s sample=%llu skbaddr=%p token=%d pid=%d wcid=%d link=%d phy=%d qid=%d qidx=%d wlan=%d omac=%d tid=%d tgid=%d protect=%d no_ack=%d seq=%d txs_format=%d txs_band=%d status_supported=%d ack_error=%d ack_timeout=%d rts_timeout=%d queue_timeout=%d ba_error=%d acked=%d observed_len=%u captured_len=%u generation_known=0 d0=0x%x d1=0x%x d2=0x%x d3=0x%x d4=0x%x d5=0x%x d6=0x%x d7=0x%x hex=%*phN", DEV_PR_ARG,
++		__get_str(stage), __get_str(layout), __entry->sample, __entry->skbaddr, __entry->token, __entry->pid, __entry->wcid, __entry->link, __entry->phy, __entry->qid, __entry->qidx, __entry->wlan, __entry->omac, __entry->tid, __entry->tgid, __entry->protect, __entry->no_ack, __entry->seq, __entry->txs_format, __entry->txs_band, __entry->status_supported, __entry->ack_error, __entry->ack_timeout, __entry->rts_timeout, __entry->queue_timeout, __entry->ba_error, __entry->acked, __entry->observed_len, __entry->captured_len,
++		__entry->words[0], __entry->words[1], __entry->words[2], __entry->words[3],
++		__entry->words[4], __entry->words[5], __entry->words[6], __entry->words[7],
++		32, __entry->bytes)
++);
++
+ #endif
+ 
+ #undef TRACE_INCLUDE_PATH
+--- a/mt7925/mac.c
++++ b/mt7925/mac.c
+@@ -8,6 +8,7 @@
+ #include "../dma.h"
+ #include "regd.h"
+ #include "mac.h"
++#include "whd_tx_fields.h"
+ #include "mcu.h"
+ #include "../trace.h"
+ #include "mlo_valid_rx.h"
+@@ -1734,6 +1735,66 @@
+ 		       false);
+ }
+ 
++/* Called only at MAC dispatch sites that have already bounded each record.
++ * Captures the first 8 words, not TXP DMA pointers or frame payload. MCU RAW
++ * TLVs are deliberately excluded: their minimum length is not checked here.
++ */
++static void
++mt7925_whd_trace_txs(struct mt792x_dev *dev, const void *data, u32 record_len)
++{
++	static atomic64_t samples = ATOMIC64_INIT(0);
++	struct mt76_dev *mdev = &dev->mt76;
++	const __le32 *txs = data;
++	struct mt76_whd_tx_observation v = {
++		.stage = "tx_status", .layout = "connac3_txs32_prefix", .skbaddr = NULL,
++		.token = -1, .pid = -1, .wcid = -1, .link = -1, .phy = -1, .qid = -1,
++		.observed_len = record_len, .captured_len = 32,
++	};
++	struct whd_tx_fields f;
++	struct mt76_wcid *wcid;
++	unsigned int i;
++
++	if (!trace_whd_tx_descriptor_enabled() || record_len < 32)
++		return;
++	v.sample = atomic64_inc_return(&samples);
++	for (i = 0; i < 8; i++)
++		v.words[i] = le32_to_cpu(txs[i]);
++	whd_tx_copy32(v.bytes, data);
++	f = whd_txs_fields(v.words, !is_mt7928(mdev));
++	v.qidx = f.qidx;
++	v.wlan = f.wlan;
++	v.omac = f.omac;
++	v.tid = f.tid;
++	v.tgid = f.tgid;
++	v.protect = f.protect;
++	v.no_ack = f.no_ack;
++	v.seq = f.seq;
++	v.txs_format = f.txs_format;
++	v.txs_band = f.txs_band;
++	v.status_supported = f.status_supported;
++	v.ack_error = f.ack_error;
++	v.ack_timeout = f.ack_timeout;
++	v.rts_timeout = f.rts_timeout;
++	v.queue_timeout = f.queue_timeout;
++	v.ba_error = f.ba_error;
++	v.acked = f.acked;
++	v.pid = f.pid;
++	/* Snapshot only: never install/update a peer or synthesize a token/skb join. */
++	if (f.status_supported && f.wlan < MT792x_WTBL_SIZE) {
++		rcu_read_lock();
++		wcid = mt76_wcid_ptr(dev, f.wlan);
++		if (wcid) {
++			v.wcid = wcid->idx;
++			if (wcid->sta) {
++				v.link = wcid->link_id;
++				v.phy = wcid->phy_idx;
++			}
++		}
++		rcu_read_unlock();
++	}
++	trace_whd_tx_descriptor(mdev, &v);
++}
++
+ bool mt7925_rx_check(struct mt76_dev *mdev, void *data, int len)
+ {
+ 	struct mt792x_dev *dev = container_of(mdev, struct mt792x_dev, mt76);
+@@ -1758,8 +1819,10 @@
+ 		mt7925_mac_tx_free(dev, data, len);
+ 		return false;
+ 	case PKT_TYPE_TXS:
+-		for (rxd += 4; rxd + 12 <= end; rxd += 12)
++		for (rxd += 4; rxd + 12 <= end; rxd += 12) {
++			mt7925_whd_trace_txs(dev, rxd, 12 * sizeof(*rxd));
+ 			mt7925_mac_add_txs(dev, rxd);
++		}
+ 		return false;
+ 	default:
+ 		return true;
+@@ -1803,8 +1866,10 @@
+ 		mt7925_mcu_rx_event(dev, skb);
+ 		break;
+ 	case PKT_TYPE_TXS:
+-		for (rxd += 2; rxd + 8 <= end; rxd += 8)
++		for (rxd += 2; rxd + 8 <= end; rxd += 8) {
++			mt7925_whd_trace_txs(dev, rxd, 8 * sizeof(*rxd));
+ 			mt7925_mac_add_txs(dev, rxd);
++		}
+ 		dev_kfree_skb(skb);
+ 		break;
+ 	case PKT_TYPE_NORMAL_MCU:
+--- a/mt7925/pci_mac.c
++++ b/mt7925/pci_mac.c
+@@ -5,6 +5,7 @@
+ #include "../dma.h"
+ #include "mcu.h"
+ #include "mac.h"
++#include "whd_tx_fields.h"
+ #include "../trace.h"
+ 
+ int mt7925e_tx_prepare_skb(struct mt76_dev *mdev, void *txwi_ptr,
+@@ -56,6 +57,44 @@
+ 	t->mlo_diag_pid = pid;
+ 	mt7925_mac_write_txwi(mdev, txwi_ptr, tx_info->skb, wcid, key,
+ 			      pid, qid, 0);
++	if (trace_whd_tx_descriptor_enabled()) {
++		static atomic64_t samples = ATOMIC64_INIT(0);
++		struct mt76_whd_tx_observation v = {
++			.stage = "txd", .layout = "connac3_txd32", .skbaddr = tx_info->skb,
++			.token = id, .pid = pid, .wcid = wcid->idx,
++			.link = wcid->sta ? wcid->link_id : -1,
++			.phy = wcid->sta ? wcid->phy_idx : -1, .qid = qid,
++			.observed_len = MT_TXD_SIZE, .captured_len = 32,
++		};
++		struct whd_tx_fields f;
++		unsigned int i;
++
++		BUILD_BUG_ON(MT_TXD_SIZE != 32);
++		v.sample = atomic64_inc_return(&samples);
++		for (i = 0; i < 8; i++)
++			v.words[i] = le32_to_cpu(((__le32 *)txwi_ptr)[i]);
++		whd_tx_copy32(v.bytes, txwi_ptr);
++		f = whd_txd_fields(v.words);
++		v.qidx = f.qidx;
++		v.wlan = f.wlan;
++		v.omac = f.omac;
++		v.tid = f.tid;
++		v.tgid = f.tgid;
++		v.protect = f.protect;
++		v.no_ack = f.no_ack;
++		v.seq = f.seq;
++		v.txs_format = f.txs_format;
++		v.txs_band = f.txs_band;
++		v.status_supported = f.status_supported;
++		v.ack_error = f.ack_error;
++		v.ack_timeout = f.ack_timeout;
++		v.rts_timeout = f.rts_timeout;
++		v.queue_timeout = f.queue_timeout;
++		v.ba_error = f.ba_error;
++		v.acked = f.acked;
++		trace_whd_tx_descriptor(mdev, &v);
++	}
++
+ 	if (unlikely(mt76_mlo_diag_trace)) {
+ 		struct mt792x_bss_conf *mconf = NULL;
+ 		struct mt76_phy *dma_phy = mt76_dev_phy(mdev, t->phy_idx);
+--- /dev/null
++++ b/mt7925/whd_tx_fields.h
+@@ -0,0 +1,68 @@
++/* SPDX-License-Identifier: BSD-3-Clause-Clear */
++#ifndef __MT7925_WHD_TX_FIELDS_H
++#define __MT7925_WHD_TX_FIELDS_H
++
++/* Caller supplies CPU-endian descriptor words. Masks come from this exact
++ * source's mt76_connac3_mac.h; do not substitute connac2 or firmware layouts.
++ * No packet contents, key material, queue/status requests or state changes.
++ */
++struct whd_tx_fields {
++	int qidx, wlan, omac, tid, tgid, protect, no_ack, seq;
++	int txs_format, txs_band, pid, status_supported;
++	int ack_error, ack_timeout, rts_timeout, queue_timeout, ba_error, acked;
++};
++
++static inline unsigned int
++whd_tx_field(unsigned int mask, unsigned int word)
++{
++	return (word & mask) >> __builtin_ctz(mask);
++}
++
++static inline struct whd_tx_fields whd_txd_fields(const unsigned int *d)
++{
++	struct whd_tx_fields f = {
++		.qidx = whd_tx_field(MT_TXD0_Q_IDX, d[0]),
++		.wlan = whd_tx_field(MT_TXD1_WLAN_IDX, d[1]),
++		.omac = whd_tx_field(MT_TXD1_OWN_MAC, d[1]),
++		.tid = whd_tx_field(MT_TXD1_TID, d[1]),
++		.tgid = whd_tx_field(MT_TXD1_TGID, d[1]),
++		.protect = !!(d[3] & MT_TXD3_PROTECT_FRAME),
++		.no_ack = !!(d[3] & MT_TXD3_NO_ACK),
++		.seq = whd_tx_field(MT_TXD3_SEQ, d[3]),
++		.txs_format = -1, .txs_band = -1, .pid = -1,
++		.status_supported = 0, .ack_error = -1, .ack_timeout = -1,
++		.rts_timeout = -1, .queue_timeout = -1, .ba_error = -1, .acked = -1,
++	};
++	return f;
++}
++
++static inline struct whd_tx_fields
++whd_txs_fields(const unsigned int *d, int connac3_supported)
++{
++	struct whd_tx_fields f = {
++		.qidx = -1, .wlan = whd_tx_field(MT_TXS2_WCID, d[2]),
++		.omac = -1, .tid = -1, .tgid = -1, .protect = -1, .no_ack = -1,
++		.seq = -1, .txs_format = whd_tx_field(MT_TXS0_TXS_FORMAT, d[0]),
++		.txs_band = whd_tx_field(MT_TXS2_BAND, d[2]),
++		.pid = whd_tx_field(MT_TXS3_PID, d[3]),
++		.ack_error = whd_tx_field(MT_TXS0_ACK_ERROR_MASK, d[0]),
++		.ack_timeout = !!(d[0] & MT_TXS0_ACK_TIMEOUT),
++		.rts_timeout = !!(d[0] & MT_TXS0_RTS_TIMEOUT),
++		.queue_timeout = !!(d[0] & MT_TXS0_QUEUE_TIMEOUT),
++		.ba_error = !!(d[0] & MT_TXS0_BA_ERROR), .acked = -1,
++	};
++	f.status_supported = connac3_supported && f.txs_format <= 1;
++	if (f.status_supported)
++		f.acked = !f.ack_error;
++	return f;
++}
++
++static inline void whd_tx_copy32(unsigned char *out, const void *descriptor)
++{
++	const unsigned char *p = descriptor;
++	unsigned int i;
++
++	for (i = 0; i < 32; i++)
++		out[i] = p[i];
++}
++#endif

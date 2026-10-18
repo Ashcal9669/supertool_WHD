@@ -212,6 +212,7 @@ class Inventory:
         if stored:
             d = Device.model_validate(stored)
             d.present = False
+            d.refresh_test_eligibility()
             return d
         return None
 
@@ -232,6 +233,7 @@ class Inventory:
                     continue
                 s = DeviceSummary.model_validate(d.model_dump(include=set(DeviceSummary.model_fields)))
                 s.present = False
+                s.refresh_test_eligibility()
                 s.first_seen, s.last_seen = row["first_seen"], row["last_seen"]
                 out.append(s)
         return out

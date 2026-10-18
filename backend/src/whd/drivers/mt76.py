@@ -101,9 +101,21 @@ PATCHES: list[dict[str, Any]] = [
         "id": "0001-mt76-trace-mcu-command-lifecycle",
         "file": "docs/patches/0001-mt76-trace-mcu-command-lifecycle.diff",
         "adds": ["mt76:mcu_send", "mt76:mcu_resp"],
-        "summary": "MCU command submission/response tracepoints with sequence number and latency. Compile-tested in a "
-        "scratch copy of the tree only; never applied by WHD.",
+        "summary": "MCU command submission/response tracepoints with sequence number and latency. Compile-tested in a scratch copy of the tree only; never applied by WHD.",
         "validated": "compiled mcu.o/trace.o against the running kernel's headers; not loaded on hardware",
+    },
+    {
+        "id": "0002-mt76-whd-observation-boundaries",
+        "file": "docs/patches/0002-mt76-whd-observation-boundaries.diff",
+        "adds": [
+            "mt76:whd_mcu_lifecycle",
+            "mt76:whd_mcu_tlv",
+            "mt76:whd_packet_boundary",
+            "mt76:whd_rx_boundary",
+            "mt76:whd_rx_descriptor",
+        ],
+        "summary": "MCU cookies/errors and audited non-key identity TLVs; skb TX/free and RX PN/mac80211 boundaries. Source hashes included; no driver behavior or key changes.",
+        "validated": "scratch objects compiled against 7.3.0-rc5 headers; not installed or run on hardware; source/build match unverified",
     },
 ]
 

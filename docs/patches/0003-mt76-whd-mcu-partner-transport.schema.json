@@ -1,0 +1,114 @@
+{
+  "tracepoint": "mt76:whd_mcu_transport",
+  "fields": [
+    "wiphy_name",
+    "phase",
+    "reason",
+    "sample",
+    "cookie",
+    "cmd",
+    "attempt",
+    "expected_seq",
+    "actual_seq",
+    "wait_resp",
+    "ret",
+    "eid",
+    "ext_eid",
+    "option",
+    "s2d",
+    "declared_len",
+    "observed_len",
+    "offset",
+    "region_len",
+    "captured_len",
+    "hex"
+  ],
+  "phases": {
+    "start": "host request before transport; attempt 0; no raw request payload",
+    "send": "after send callback returns; actual assigned sequence, not RF or firmware acceptance",
+    "response": "candidate before destructive parser; sample groups header and spans",
+    "parse": "host parser return; -EAGAIN remains mismatch; never success inferred from response pre-parse",
+    "done": "final host operation return; can be no-wait, pre-send failure, timeout or parser result",
+    "async": "unsolicited header and safe spans; cmd/cookie/attempt zero, expected_seq -1, no matching request inferred"
+  },
+  "sample": "monotonic observation-local 64-bit counter; all byte spans from one callback share sample; scope by boot/device; parse is separate sample",
+  "cookie": "monotonic core operation counter under MCU mutex; scope by boot/device; not identical to 0002 timestamp cookie",
+  "attempt": "one-based actual send attempts; 0 before send; does not change existing retry limit",
+  "hex": "compact lowercase %*phN bytes; empty when captured_len 0; never parse an omitted span as zero bytes",
+  "offset": "from original received skb data before skb_pull; not payload-relative",
+  "region_len": "number of original bytes described by safe or suppression record",
+  "captured_len": "bytes retained; either region_len or zero; maximum 15 per safe span",
+  "unknown_numeric": "-1; zero is a real value except explicitly reserved async cmd/cookie/attempt",
+  "response_allowlist": {
+    "commands": [
+      "0x20001 DEV_INFO_UPDATE",
+      "0x20002 BSS_INFO_UPDATE",
+      "0x20003 STA_REC_UPDATE"
+    ],
+    "eid": 1,
+    "header_size": 44,
+    "cid": {
+      "offset": 44,
+      "length": 1,
+      "must_match": "cmd low16"
+    },
+    "status": {
+      "offset": 48,
+      "length": 4,
+      "encoding": "little endian u32"
+    },
+    "reserved": {
+      "offset": 45,
+      "length": 3,
+      "captured": false
+    },
+    "extra_tail": "suppressed"
+  },
+  "async_allowlist": {
+    "eid": 39,
+    "prefix": "44 byte rxd followed by 4 reserved bytes",
+    "tlv_tags": [
+      0,
+      4
+    ],
+    "tlv_exact_length": 20,
+    "tlv_fields": "tag le16, len le16, bss_idx, tokenid, status, primarychannel, rfsco, rfband, channelwidth, centerfreqseg1, centerfreqseg2, reqtype, dbdcband, reserved byte, max_interval le32",
+    "spans": [
+      {
+        "relative_offset": 0,
+        "length": 15
+      },
+      {
+        "relative_offset": 16,
+        "length": 4
+      }
+    ],
+    "reserved_relative_offset": 15,
+    "max_tlvs": 8
+  },
+  "reasons": [
+    "metadata_only",
+    "header_metadata_only",
+    "no_wire_seq",
+    "no_response",
+    "nonlinear_suppressed",
+    "short_header",
+    "unknown_or_security_command",
+    "unexpected_result_eid",
+    "short_result",
+    "cid_mismatch",
+    "safe_result_cid",
+    "safe_result_status",
+    "reserved",
+    "unknown_tail",
+    "unknown_or_security_event",
+    "short_roc_prefix",
+    "short_tlv_header",
+    "invalid_tlv_length",
+    "safe_roc_grant",
+    "safe_roc_interval",
+    "unknown_or_extended_tlv",
+    "tlv_budget"
+  ],
+  "integration": "Rawls/parent should validate safe allowlist, offset lengths, sample scope and header consistency before decoding. Never concatenate across samples or overwrite safe bytes with suppressed/unknown regions. A parse ret0 is not proof all requested link state became operational."
+}

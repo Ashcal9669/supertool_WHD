@@ -35,3 +35,20 @@ command/response pairs with latencies from them. Nothing in WHD assumes they exi
 cd /path/to/your/mt76-tree   # review the diff first
 patch -p1 --dry-run < docs/patches/0001-mt76-trace-mcu-command-lifecycle.diff
 ```
+
+## 0002-mt76-whd-observation-boundaries.diff
+
+This separate proposal targets the source files and hashes recorded in
+`0002-mt76-whd-observation-boundaries.source.json`. It adds five tracepoints:
+`whd_mcu_lifecycle`, `whd_mcu_tlv`, `whd_packet_boundary`, `whd_rx_boundary`
+and `whd_rx_descriptor`. They expose command cookies and exact errors, whitelisted
+identity TLVs, TXD/TX-free buffer identities, pre-resolution RX descriptor words,
+PN acceptance/drop and stack ingress. Buffer release remains distinct from ACK.
+Unknown and security/key command payloads are not recorded.
+
+Validation on 2026-10-12: dry-run application passed against the hashed source;
+`mcu.o`, `trace.o`, `mac80211.o`, `mt7925/mcu.o`, `mt7925/mac.o` and
+`mt7925/pci_mac.o` compiled against the running 7.3.0-rc5 kernel headers.
+All five tracepoint symbols were present. No modules were installed or loaded;
+equivalence to the loaded module build remains unverified. The original source
+tree was untouched. See [MLO evidence limits](../mlo-evidence.md).

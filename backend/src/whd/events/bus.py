@@ -7,6 +7,7 @@ import logging
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from whd.model.events import Event, EventFilter, TelemetrySample
 from whd.store.db import Store
@@ -52,15 +53,23 @@ class EventBus:
     sample_taps: list[Callable[[TelemetrySample], None]] = field(default_factory=list)
     _mem_id: int = 0
     _ephemeral_id: int = 10**12
+    boot_id: str | None = None
 
     def __post_init__(self) -> None:
         self.ring = deque(maxlen=self.ring_size)
         self.telemetry = deque(maxlen=self.telemetry_size)
+        if not self.demo:
+            try:
+                self.boot_id = Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+            except OSError:
+                pass
 
     def source(self, name: str) -> SourceStatus:
         return self.sources.setdefault(name, SourceStatus(name))
 
     def publish(self, e: Event) -> None:
+        if self.boot_id and not e.demo and not (e.session or "").startswith("replay:"):
+            e.data.setdefault("boot_id", self.boot_id)
         if self.demo:
             e.demo = True
         if self.store is None:

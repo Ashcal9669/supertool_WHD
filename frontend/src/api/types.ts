@@ -1,6 +1,10 @@
 import type { components } from "./schema";
 
 type S = components["schemas"];
+export type EvidenceReport = S["EvidenceReport"];
+export type MloState = S["MloState"];
+export type ExperimentResult = S["ExperimentResult"];
+export type AirReport = S["AirReport"];
 export type Device = S["Device"];
 export type DeviceSummary = S["DeviceSummary"];
 export type Inventory = S["Inventory"];

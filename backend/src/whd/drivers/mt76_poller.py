@@ -93,7 +93,14 @@ class Mt76Poller(Source):
                         values=vals,
                     )
                 )
-            a = self._read(phy, "mt76/mlo_active_links")
+            snapshot = self.ctx.inventory.snapshot
+            if snapshot is None:
+                continue
+            device = next((d for d in snapshot.devices if d.id == dev_id), None)
+            if device is None:
+                continue
+            ordinary = (device.vendor_id, device.product_id) == (0x14C3, 0x0616)
+            a = self._read(phy, "mt76/mlo_active_links") if not ordinary else None
             if a:
                 try:
                     mask = int(a.strip(), 0)

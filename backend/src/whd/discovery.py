@@ -297,6 +297,7 @@ class Discovery:
                 dev.power.wifi_power_save[nd] = ps.get(n.ifindex)
             dev.netdev_info.append(n)
         dev.operstate = next((n.operstate for n in dev.netdev_info if n.operstate), None)
+        dev.refresh_test_eligibility()
         dev.title = dev.product_name or (
             f"{dev.vendor_id:04x}:{dev.product_id:04x}"
             if dev.vendor_id is not None and dev.product_id is not None

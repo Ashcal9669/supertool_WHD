@@ -27,6 +27,7 @@ import grp
 import json
 import logging
 import os
+import re
 import signal
 import socket
 import stat
@@ -119,6 +120,29 @@ class TraceSession:
     stop: threading.Event = field(default_factory=threading.Event)
     dropped: int = 0
     lines: int = 0
+    rate_limit_dropped: int = 0
+    queue_dropped: int = 0
+    loss_lock: threading.Lock = field(default_factory=threading.Lock)
+    kernel_loss: dict[str, Any] | None = None
+
+    def add_drops(self, count: int, *, queue: bool = False) -> None:
+        with self.loss_lock:
+            if queue:
+                self.queue_dropped += count
+            else:
+                self.rate_limit_dropped += count
+            self.dropped += count
+
+    def loss(self) -> dict[str, Any]:
+        with self.loss_lock:
+            return {
+                "helper": {
+                    "rate_limit_dropped": self.rate_limit_dropped,
+                    "queue_dropped": self.queue_dropped,
+                    "total_dropped": self.rate_limit_dropped + self.queue_dropped,
+                },
+                "kernel": self.kernel_loss,
+            }
 
 
 class Helper:
@@ -262,6 +286,8 @@ class Helper:
         clocks = _read(tr / "trace_clock", 4096).decode().split() if (tr / "trace_clock").exists() else []
         cur = _read(tr / "current_tracer", 256).decode().strip() if (tr / "current_tracer").exists() else None
         s = self.trace
+        if s is not None:
+            s.kernel_loss = self._trace_cpu_loss()
         return {
             "instances": inst,
             "trace_clocks": [c.strip("[]") for c in clocks],
@@ -274,11 +300,88 @@ class Helper:
                 "started": s.started,
                 "lines": s.lines,
                 "dropped": s.dropped,
+                "loss": s.loss(),
             },
         }
 
+    def _trace_cpu_loss(self) -> dict[str, Any]:
+        """Read only the active session's owned instance, never global/foreign rings.
+
+        Totals are per metric across the enumerated CPUs. The three metrics are
+        deliberately not added together: they are different kernel counters.
+        A missing, malformed or duplicate value makes that metric's total unknown.
+        """
+        names = {"overrun": "overrun", "commit overrun": "commit_overrun", "dropped events": "dropped_events"}
+        rows: dict[str, dict[str, int | None]] = {}
+        error = None
+        inst = self.roots.tracefs / "instances" / INSTANCE
+        try:
+            if self.trace is None or inst.is_symlink():
+                raise HelperError("missing", "no owned trace session")
+            base = _within(inst / "per_cpu", inst)
+            cpus = sorted(p for p in base.iterdir() if re.fullmatch(r"cpu[0-9]+", p.name))
+            for cpu in cpus:
+                values: dict[str, int | None] = dict.fromkeys(names.values())
+                try:
+                    path = _within(cpu / "stats", base / cpu.name)
+                    # Also reject a CPU-directory symlink into another instance.
+                    _within(path, inst)
+                    seen: set[str] = set()
+                    for line in _read(path, 16384).decode(errors="replace").splitlines():
+                        key, sep, value = line.partition(":")
+                        metric = names.get(key.strip())
+                        if not sep or metric is None:
+                            continue
+                        value = value.strip()
+                        values[metric] = (
+                            int(value) if metric not in seen and re.fullmatch(r"[0-9]+", value) else None
+                        )
+                        seen.add(metric)
+                except (OSError, HelperError):
+                    pass
+                rows[cpu.name] = values
+        except (OSError, HelperError) as exc:
+            error = str(exc)
+        coverage = {}
+        totals: dict[str, int | None] = {}
+        for metric in names.values():
+            available = [cpu for cpu, values in rows.items() if values[metric] is not None]
+            missing = [cpu for cpu, values in rows.items() if values[metric] is None]
+            complete = bool(rows) and not missing and error is None
+            coverage[metric] = {"available_cpus": available, "missing_cpus": missing, "complete": complete}
+            totals[metric] = sum(int(rows[cpu][metric] or 0) for cpu in available) if complete else None
+        return {
+            "instance": f"instances/{INSTANCE}",
+            "cpus": rows,
+            "coverage": {"cpus": list(rows) if error is None else None, "metrics": coverage},
+            "totals": totals,
+            "error": error,
+        }
+
     # ------------------------------------------------------------- tracing
-    def _trace_setup(self, events: list[str], buffer_kb: int) -> TraceSession:
+    def _trace_filter(self, spec: str, interface: str) -> str:
+        if not isinstance(interface, str) or not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,14}", interface):
+            raise HelperError("args", "invalid interface")
+        base = self.roots.sys / "class/net" / interface
+        try:
+            identity = tuple(
+                (base / "device" / field).read_text().strip().lower() for field in ("vendor", "device")
+            )
+            driver = (base / "device/driver").resolve().name
+        except OSError:
+            raise HelperError("policy", "verified MT7922 identity required for live tracing") from None
+        if identity != ("0x14c3", "0x0616") or driver not in ("mt7921e", "mt7921e_git"):
+            raise HelperError("policy", "verified MT7922 identity required for live tracing")
+        phy = (base / "phy80211").resolve().name
+        if not PHY_RE.fullmatch(phy):
+            raise HelperError("policy", "current MT7922 PHY cannot be verified")
+        fmt = _read(self.roots.tracefs / "events" / spec / "format", 16384).decode()
+        for filter_field, value in (("name", interface), ("wiphy_name", phy), ("phy_name", phy)):
+            if re.search(r"field:.*\b" + filter_field + r"(?:\[.*?\])?;", fmt):
+                return f'{filter_field} == "{value}"'
+        raise HelperError("policy", f"{spec} lacks a device filter; refusing shared-adapter tracing")
+
+    def _trace_setup(self, events: list[str], buffer_kb: int, interface: str | None = None) -> TraceSession:
         tr = self.roots.tracefs
         if not (tr / "instances").is_dir():
             raise HelperError("missing", "tracefs instances not supported")
@@ -300,9 +403,12 @@ class Helper:
                 resolved.append(spec)
             else:
                 raise HelperError("missing", f"tracepoint {spec} not available on this kernel")
+        filters = {spec: self._trace_filter(spec, interface) for spec in resolved} if interface else {}
+        if self.roots.sys == Path("/sys") and not interface:
+            raise HelperError("policy", "selected MT7922 interface required for live tracing")
         inst = tr / "instances" / INSTANCE
         if inst.exists():
-            self._trace_teardown()
+            raise HelperError("busy", "existing WHD trace instance preserved; refusing to replace it")
         os.mkdir(inst)  # creates a new, independent ring buffer instance
         clocks = [c.strip("[]") for c in _read(inst / "trace_clock", 4096).decode().split()]
         clock = "boot" if "boot" in clocks else "mono" if "mono" in clocks else "local"
@@ -310,6 +416,8 @@ class Helper:
         _write_own(inst / "buffer_size_kb", str(max(64, min(int(buffer_kb), MAX_BUFFER_KB))), self.roots)
         for spec in resolved:
             g, e = spec.split("/")
+            if spec in filters:
+                _write_own(inst / "events" / g / e / "filter", filters[spec], self.roots)
             _write_own(inst / "events" / g / e / "enable", "1", self.roots)
         _write_own(inst / "tracing_on", "1", self.roots)
         return TraceSession(events=resolved, clock=clock)
@@ -349,13 +457,15 @@ class Helper:
                 if now - window_start >= 1.0:
                     window_start, window_lines = now, 0
                 keep: list[str] = []
+                rate_drops = 0
                 for ln in lines:
                     if window_lines >= MAX_LINES_PER_SEC:
-                        session.dropped += 1
+                        rate_drops += 1
                         continue
                     window_lines += 1
                     keep.append(ln.decode(errors="replace"))
                 session.lines += len(keep)
+                session.add_drops(rate_drops)
                 if keep:
                     emit(keep, session.dropped)
         finally:
@@ -368,12 +478,15 @@ class Helper:
         events: list[str],
         buffer_kb: int = 4096,
         max_seconds: int = 3600,
+        interface: str | None = None,
     ) -> dict[str, Any]:
         if not self.trace_lock.acquire(blocking=False):
             raise HelperError("busy", "a WHD trace session is already active")
+        session = None
         try:
-            session = await asyncio.to_thread(self._trace_setup, events, buffer_kb)
+            session = await asyncio.to_thread(self._trace_setup, events, buffer_kb, interface)
             self.trace = session
+            session.kernel_loss = self._trace_cpu_loss()
             await send(
                 {
                     "id": rid,
@@ -381,6 +494,12 @@ class Helper:
                         "events": session.events,
                         "clock": session.clock,
                         "instance": f"instances/{INSTANCE}",
+                        "started": session.started,
+                        "loss": session.loss(),
+                        "interface": interface,
+                        "filters": {spec: self._trace_filter(spec, interface) for spec in session.events}
+                        if interface
+                        else {},
                     },
                 }
             )
@@ -390,7 +509,7 @@ class Helper:
             def emit(lines: list[str], dropped: int) -> None:
                 def put() -> None:
                     if q.full():
-                        session.dropped += len(lines)
+                        session.add_drops(len(lines), queue=True)
                         return
                     q.put_nowait((lines, dropped))
 
@@ -400,20 +519,39 @@ class Helper:
             th = threading.Thread(target=self._pump, args=(inst / "trace_pipe", session, emit), daemon=True)
             th.start()
             deadline = time.monotonic() + max(1, min(int(max_seconds), 24 * 3600))
+            last_sample = time.monotonic()
             try:
                 while time.monotonic() < deadline:
                     try:
-                        lines, dropped = await asyncio.wait_for(q.get(), timeout=1.0)
+                        lines, _dropped = await asyncio.wait_for(q.get(), timeout=1.0)
                     except TimeoutError:
+                        session.kernel_loss = self._trace_cpu_loss()
+                        await send({"id": rid, "loss": session.loss(), "dropped": session.dropped})
                         continue
-                    await send({"id": rid, "stream": lines, "dropped": dropped})
+                    if time.monotonic() - last_sample >= 1.0:
+                        session.kernel_loss = self._trace_cpu_loss()
+                        last_sample = time.monotonic()
+                    await send(
+                        {"id": rid, "stream": lines, "dropped": session.dropped, "loss": session.loss()}
+                    )
             finally:
                 session.stop.set()
                 await asyncio.to_thread(th.join, 2.0)
-            return {"ended": "max_seconds", "lines": session.lines, "dropped": session.dropped}
+                await asyncio.sleep(0)  # settle pump's scheduled queue callbacks before accounting
+                while not q.empty():
+                    unsent, _ = q.get_nowait()
+                    session.add_drops(len(unsent), queue=True)
+                session.kernel_loss = self._trace_cpu_loss()
+            return {
+                "ended": "max_seconds",
+                "lines": session.lines,
+                "dropped": session.dropped,
+                "loss": session.loss(),
+            }
         finally:
             self.trace = None
-            await asyncio.to_thread(self._trace_teardown)
+            if session is not None:
+                await asyncio.to_thread(self._trace_teardown)
             self.trace_lock.release()
 
     async def usbmon_stream(

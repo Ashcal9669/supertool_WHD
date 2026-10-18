@@ -1,0 +1,396 @@
+--- a/mt76.h
++++ b/mt76.h
+@@ -284,7 +284,35 @@
+ 	struct page_pool *page_pool;
+ };
+ 
++/* Observation-only MCU transport envelope; no payload owns an skb lifetime. */
++struct mt76_mcu_observation {
++	const char *phase;
++	const char *reason;
++	const u8 *bytes;
++	u64 sample;
++	u64 cookie;
++	u32 cmd;
++	u32 attempt;
++	int expected_seq;
++	int actual_seq;
++	bool wait_resp;
++	int ret;
++	int eid;
++	int ext_eid;
++	int option;
++	int s2d;
++	int declared_len;
++	int observed_len;
++	u32 offset;
++	u32 region_len;
++	u32 captured_len;
++};
++
+ struct mt76_mcu_ops {
++	/* Optional passive observer; called under mcu.mutex, never changes skb. */
++	void (*mcu_trace_message)(struct mt76_dev *dev, const char *phase,
++				  int cmd, u64 cookie, u32 attempt, int seq,
++				  bool wait_resp, int ret, struct sk_buff *skb);
+ 	unsigned int max_retry;
+ 	u32 headroom;
+ 	u32 tailroom;
+--- a/trace.h
++++ b/trace.h
+@@ -291,6 +291,59 @@
+ 			__entry->drop_flags)
+ 	);
+ 
++TRACE_EVENT(whd_mcu_transport,
++	TP_PROTO(struct mt76_dev *dev, const struct mt76_mcu_observation *v),
++	TP_ARGS(dev, v),
++	TP_STRUCT__entry(DEV_ENTRY
++		__string(phase, v->phase)
++		__string(reason, v->reason)
++		__field(u64, sample)
++		__field(u64, cookie)
++		__field(u32, cmd)
++		__field(u32, attempt)
++		__field(int, expected_seq)
++		__field(int, actual_seq)
++		__field(bool, wait_resp)
++		__field(int, ret)
++		__field(int, eid)
++		__field(int, ext_eid)
++		__field(int, option)
++		__field(int, s2d)
++		__field(int, declared_len)
++		__field(int, observed_len)
++		__field(u32, offset)
++		__field(u32, region_len)
++		__field(u32, captured_len)
++		__dynamic_array(u8, bytes, v->captured_len)
++	),
++	TP_fast_assign(DEVICE_ASSIGN;
++		__assign_str(phase);
++		__assign_str(reason);
++		__entry->sample = v->sample;
++		__entry->cookie = v->cookie;
++		__entry->cmd = v->cmd;
++		__entry->attempt = v->attempt;
++		__entry->expected_seq = v->expected_seq;
++		__entry->actual_seq = v->actual_seq;
++		__entry->wait_resp = v->wait_resp;
++		__entry->ret = v->ret;
++		__entry->eid = v->eid;
++		__entry->ext_eid = v->ext_eid;
++		__entry->option = v->option;
++		__entry->s2d = v->s2d;
++		__entry->declared_len = v->declared_len;
++		__entry->observed_len = v->observed_len;
++		__entry->offset = v->offset;
++		__entry->region_len = v->region_len;
++		__entry->captured_len = v->captured_len;
++		if (v->captured_len)
++			memcpy(__get_dynamic_array(bytes), v->bytes, v->captured_len);
++	),
++	TP_printk(DEV_PR_FMT " phase=%s reason=%s sample=%llu cookie=%llu cmd=0x%x attempt=%u expected_seq=%d actual_seq=%d wait_resp=%u ret=%d eid=%d ext_eid=%d option=%d s2d=%d declared_len=%d observed_len=%d offset=%u region_len=%u captured_len=%u hex=%*phN", DEV_PR_ARG,
++		__get_str(phase), __get_str(reason), __entry->sample, __entry->cookie, __entry->cmd, __entry->attempt, __entry->expected_seq, __entry->actual_seq, __entry->wait_resp, __entry->ret, __entry->eid, __entry->ext_eid, __entry->option, __entry->s2d, __entry->declared_len, __entry->observed_len, __entry->offset, __entry->region_len, __entry->captured_len,
++		__get_dynamic_array_len(bytes), __get_dynamic_array(bytes))
++);
++
+ #endif
+ 
+ #undef TRACE_INCLUDE_PATH
+--- a/mcu.c
++++ b/mcu.c
+@@ -4,6 +4,16 @@
+  */
+ 
+ #include "mt76.h"
++
++static void
++mt76_whd_mcu_observe(struct mt76_dev *dev, const char *phase, int cmd,
++		     u64 cookie, u32 attempt, int seq, bool wait_resp,
++		     int ret, struct sk_buff *skb)
++{
++	if (dev->mcu_ops->mcu_trace_message)
++		dev->mcu_ops->mcu_trace_message(dev, phase, cmd, cookie, attempt,
++					      seq, wait_resp, ret, skb);
++}
+ 
+ struct sk_buff *
+ __mt76_mcu_msg_alloc(struct mt76_dev *dev, const void *data,
+@@ -76,12 +86,18 @@
+ 	unsigned int retry = 0;
+ 	struct sk_buff *orig_skb = NULL;
+ 	unsigned long expires;
+-	int ret, seq;
++	static atomic64_t whd_cookies = ATOMIC64_INIT(0);
++	u64 whd_cookie;
++	u32 whd_attempt = 0;
++	int ret, seq = -1;
+ 
+ 	if (ret_skb)
+ 		*ret_skb = NULL;
+ 
+ 	mutex_lock(&dev->mcu.mutex);
++	whd_cookie = atomic64_inc_return(&whd_cookies);
++	mt76_whd_mcu_observe(dev, "start", cmd, whd_cookie, whd_attempt,
++			     seq, wait_resp, 0, skb);
+ 
+ 	if ((mt76_is_mmio(dev) && atomic_read(&dev->bus_hung)) ||
+ 	    (mt76_is_sdio(dev) && test_bit(MT76_RESET, &dev->phy.state) &&
+@@ -99,10 +115,13 @@
+ 	}
+ 
+ retry:
++	whd_attempt++;
+ 	/* orig skb might be needed for retry, mcu_skb_send_msg consumes it */
+ 	if (orig_skb)
+ 		skb_get(orig_skb);
+ 	ret = dev->mcu_ops->mcu_skb_send_msg(dev, skb, cmd, wait_resp ? &seq : NULL);
++	mt76_whd_mcu_observe(dev, "send", cmd, whd_cookie, whd_attempt,
++			     seq, wait_resp, ret, NULL);
+ 	if (ret < 0)
+ 		goto out;
+ 
+@@ -123,7 +142,11 @@
+ 			goto retry;
+ 		}
+ 
++		mt76_whd_mcu_observe(dev, "response", cmd, whd_cookie, whd_attempt,
++				     seq, wait_resp, 0, skb);
+ 		ret = dev->mcu_ops->mcu_parse_response(dev, cmd, skb, seq);
++		mt76_whd_mcu_observe(dev, "parse", cmd, whd_cookie, whd_attempt,
++				     seq, wait_resp, ret, NULL);
+ 		if (!ret && ret_skb)
+ 			*ret_skb = skb;
+ 		else
+@@ -132,6 +155,8 @@
+ 
+ 
+ out:
++	mt76_whd_mcu_observe(dev, "done", cmd, whd_cookie, whd_attempt,
++			     seq, wait_resp, ret, NULL);
+ 	dev_kfree_skb(orig_skb);
+ 	mutex_unlock(&dev->mcu.mutex);
+ 
+--- a/mt7925/mcu.c
++++ b/mt7925/mcu.c
+@@ -6,6 +6,8 @@
+ #include <linux/moduleparam.h>
+ #include <crypto/sha2.h>
+ #include "mt7925.h"
++#include "../trace.h"
++#include "whd_mcu_safe.h"
+ #include "regd.h"
+ #include "mcu.h"
+ #include "mac.h"
+@@ -91,6 +93,95 @@
+ 	return strncmp(build_date, MT7925_WOW_PATTERN_NEW_FW_DATE,
+ 		       strlen(MT7925_WOW_PATTERN_NEW_FW_DATE)) < 0;
+ }
++
++
++struct mt7925_whd_span_ctx {
++	struct mt76_dev *dev;
++	struct mt76_mcu_observation *v;
++	const u8 *data;
++};
++
++static void mt7925_whd_span(void *arg, unsigned int off, unsigned int region,
++			    unsigned int cap, const char *reason)
++{
++	struct mt7925_whd_span_ctx *ctx = arg;
++	struct mt76_mcu_observation *v = ctx->v;
++
++	v->offset = off;
++	v->region_len = region;
++	v->captured_len = cap;
++	v->bytes = cap ? ctx->data + off : NULL;
++	v->reason = reason;
++	trace_whd_mcu_transport(ctx->dev, v);
++}
++
++void mt7925_mcu_trace_message(struct mt76_dev *dev, const char *phase,
++			     int cmd, u64 cookie, u32 attempt, int seq,
++			     bool wait_resp, int ret, struct sk_buff *skb)
++{
++	static atomic64_t samples = ATOMIC64_INIT(0);
++	struct mt76_mcu_observation v = {
++		.phase = phase, .reason = "metadata_only", .cookie = cookie,
++		.cmd = cmd, .attempt = attempt, .expected_seq = seq,
++		.actual_seq = -1, .wait_resp = wait_resp, .ret = ret,
++		.eid = -1, .ext_eid = -1, .option = -1, .s2d = -1,
++		.declared_len = -1, .observed_len = skb ? skb->len : -1,
++	};
++	struct mt7925_whd_span_ctx ctx = { dev, &v, skb ? skb->data : NULL };
++	struct mt7925_mcu_rxd rxd;
++	bool async = !strcmp(phase, "async");
++
++	if (!trace_whd_mcu_transport_enabled())
++		return;
++	v.sample = atomic64_inc_return(&samples);
++	/* This source's PCI fill_message allocates msg_seq even without wait_seq.
++	 * FW_SCATTER does not carry the allocated number on wire. A failed send
++	 * is not proof of transmission; retain its return separately.
++	 */
++	if (!strcmp(phase, "send")) {
++		if (cmd != MCU_CMD(FW_SCATTER))
++			v.actual_seq = wait_resp ? seq : dev->mcu.msg_seq & 0xf;
++		else
++			v.reason = "no_wire_seq";
++	}
++	if (strcmp(phase, "response") && !async) {
++		trace_whd_mcu_transport(dev, &v);
++		return;
++	}
++	if (!skb) {
++		v.reason = "no_response";
++		trace_whd_mcu_transport(dev, &v);
++		return;
++	}
++	if (skb_is_nonlinear(skb)) {
++		v.reason = "nonlinear_suppressed";
++		v.region_len = skb->len;
++		trace_whd_mcu_transport(dev, &v);
++		return;
++	}
++	if (skb->len < sizeof(rxd)) {
++		v.reason = "short_header";
++		v.region_len = skb->len;
++		trace_whd_mcu_transport(dev, &v);
++		return;
++	}
++	BUILD_BUG_ON(sizeof(rxd) != 44);
++	BUILD_BUG_ON(sizeof(struct mt7925_mcu_uni_event) != 8);
++	BUILD_BUG_ON(sizeof(struct mt7925_roc_grant_tlv) != 20);
++	memcpy(&rxd, skb->data, sizeof(rxd));
++	v.actual_seq = rxd.seq;
++	v.eid = rxd.eid;
++	v.ext_eid = rxd.ext_eid;
++	v.option = rxd.option;
++	v.s2d = rxd.s2d_index;
++	v.declared_len = le16_to_cpu(rxd.len);
++	v.reason = "header_metadata_only";
++	v.region_len = sizeof(rxd);
++	trace_whd_mcu_transport(dev, &v);
++	whd_mcu_safe_payload(skb->data, skb->len, async, rxd.eid, cmd,
++			     mt7925_whd_span, &ctx);
++}
++EXPORT_SYMBOL_GPL(mt7925_mcu_trace_message);
+ 
+ int mt7925_mcu_parse_response(struct mt76_dev *mdev, int cmd,
+ 			      struct sk_buff *skb, int seq)
+@@ -1064,6 +1155,8 @@
+ 
+ 	rxd = (struct mt7925_mcu_rxd *)skb->data;
+ 
++	mt7925_mcu_trace_message(&dev->mt76, "async", 0, 0, 0, -1,
++				 false, 0, skb);
+ 	switch (rxd->eid) {
+ 	case MCU_UNI_EVENT_HIF_CTRL:
+ 		mt7925_mcu_uni_hif_ctrl_event(dev, skb);
+--- a/mt7925/pci_mcu.c
++++ b/mt7925/pci_mcu.c
+@@ -30,6 +30,7 @@
+ 		.headroom = sizeof(struct mt76_connac2_mcu_txd),
+ 		.mcu_skb_send_msg = mt7925_mcu_send_message,
+ 		.mcu_parse_response = mt7925_mcu_parse_response,
++		.mcu_trace_message = mt7925_mcu_trace_message,
+ 	};
+ 	int err;
+ 
+--- a/mt7925/mt7925.h
++++ b/mt7925/mt7925.h
+@@ -526,6 +526,9 @@
+ void mt7925_txwi_free(struct mt792x_dev *dev, struct mt76_txwi_cache *t,
+ 		      struct ieee80211_sta *sta, struct mt76_wcid *wcid,
+ 		      struct list_head *free_list);
++void mt7925_mcu_trace_message(struct mt76_dev *dev, const char *phase,
++			     int cmd, u64 cookie, u32 attempt, int seq,
++			     bool wait_resp, int ret, struct sk_buff *skb);
+ int mt7925_mcu_parse_response(struct mt76_dev *mdev, int cmd,
+ 			      struct sk_buff *skb, int seq);
+ 
+--- /dev/null
++++ b/mt7925/whd_mcu_safe.h
+@@ -0,0 +1,81 @@
++/* SPDX-License-Identifier: BSD-3-Clause-Clear */
++#ifndef __MT7925_WHD_MCU_SAFE_H
++#define __MT7925_WHD_MCU_SAFE_H
++
++/* Source-bound RX envelope: 44 bytes; result CID/status: 1 + 3 pad + 4.
++ * ROC prefix: 4 reserved; grant tags 0/4: 20 bytes, byte 15 reserved.
++ * Deliberately no generic raw dump. Callback may copy only `cap` bytes.
++ * No kernel dependencies: the production selector is tested offline.
++ */
++typedef void (*whd_mcu_span_fn)(void *, unsigned int, unsigned int,
++			      unsigned int, const char *);
++
++static inline void
++whd_mcu_safe_payload(const unsigned char *b, unsigned int len, int async,
++		     unsigned int eid, unsigned int cmd,
++		     whd_mcu_span_fn emit, void *arg)
++{
++	unsigned int off, tag, size, n = 0;
++
++	if (len < 44) {
++		emit(arg, 0, len, 0, "short_header");
++		return;
++	}
++	if (!async) {
++		if (cmd != 0x20001 && cmd != 0x20002 && cmd != 0x20003) {
++			emit(arg, 44, len - 44, 0, "unknown_or_security_command");
++			return;
++		}
++		if (eid != 1) {
++			emit(arg, 44, len - 44, 0, "unexpected_result_eid");
++			return;
++		}
++		if (len < 52) {
++			emit(arg, 44, len - 44, 0, "short_result");
++			return;
++		}
++		if (b[44] != (cmd & 0xffff)) {
++			emit(arg, 44, len - 44, 0, "cid_mismatch");
++			return;
++		}
++		emit(arg, 44, 1, 1, "safe_result_cid");
++		emit(arg, 45, 3, 0, "reserved");
++		emit(arg, 48, 4, 4, "safe_result_status");
++		if (len > 52)
++			emit(arg, 52, len - 52, 0, "unknown_tail");
++		return;
++	}
++	if (eid != 0x27) {
++		emit(arg, 44, len - 44, 0, "unknown_or_security_event");
++		return;
++	}
++	if (len < 48) {
++		emit(arg, 44, len - 44, 0, "short_roc_prefix");
++		return;
++	}
++	emit(arg, 44, 4, 0, "reserved");
++	off = 48;
++	while (off < len && n++ < 8) {
++		if (len - off < 4) {
++			emit(arg, off, len - off, 0, "short_tlv_header");
++			return;
++		}
++		tag = b[off] | (unsigned int)b[off + 1] << 8;
++		size = b[off + 2] | (unsigned int)b[off + 3] << 8;
++		if (size < 4 || size > len - off) {
++			emit(arg, off, len - off, 0, "invalid_tlv_length");
++			return;
++		}
++		if ((tag == 0 || tag == 4) && size == 20) {
++			emit(arg, off, 15, 15, "safe_roc_grant");
++			emit(arg, off + 15, 1, 0, "reserved");
++			emit(arg, off + 16, 4, 4, "safe_roc_interval");
++		} else {
++			emit(arg, off, size, 0, "unknown_or_extended_tlv");
++		}
++		off += size;
++	}
++	if (off < len)
++		emit(arg, off, len - off, 0, "tlv_budget");
++}
++#endif

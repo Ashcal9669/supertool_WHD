@@ -111,6 +111,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/captures/{cid}/artifacts/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Artifact */
+        get: operations["artifact_api_v1_captures__cid__artifacts__name__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/captures/{cid}/bundle": {
         parameters: {
             query?: never;
@@ -174,6 +191,41 @@ export interface paths {
         };
         /** Export Capture */
         get: operations["export_capture_api_v1_captures__cid__export_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/captures/{cid}/mlo/air": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Air Imports */
+        get: operations["air_imports_api_v1_captures__cid__mlo_air_get"];
+        put?: never;
+        /** Air Upload */
+        post: operations["air_upload_api_v1_captures__cid__mlo_air_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/captures/{cid}/mlo/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Capture Evidence */
+        get: operations["capture_evidence_api_v1_captures__cid__mlo_evidence_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -250,6 +302,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/captures/{cid}/wifi/stack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Stack Imports */
+        get: operations["stack_imports_api_v1_captures__cid__wifi_stack_get"];
+        put?: never;
+        /** Stack Upload */
+        post: operations["stack_upload_api_v1_captures__cid__wifi_stack_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/devices": {
         parameters: {
             query?: never;
@@ -293,6 +363,23 @@ export interface paths {
         };
         /** Device Evidence */
         get: operations["device_evidence_api_v1_devices__device_id__evidence_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/devices/{device_id}/mlo/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Device Evidence */
+        get: operations["device_evidence_api_v1_devices__device_id__mlo_evidence_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -632,6 +719,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/mlo/comparisons": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Comparisons */
+        get: operations["comparisons_api_v1_mlo_comparisons_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mlo/experiments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Experiment */
+        post: operations["experiment_api_v1_mlo_experiments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/mlo/monitors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Monitors */
+        get: operations["monitors_api_v1_mlo_monitors_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/patches": {
         parameters: {
             query?: never;
@@ -911,6 +1049,94 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AirFrame */
+        AirFrame: {
+            /** Addr1 */
+            addr1: string | null;
+            /** Addr2 */
+            addr2: string | null;
+            /** Addr3 */
+            addr3: string | null;
+            /** Captured Bytes */
+            captured_bytes: number;
+            /** Eapol */
+            eapol: {
+                [key: string]: number | string | null;
+            } | null;
+            /** Frame Type */
+            frame_type: number | null;
+            /** Freq Mhz */
+            freq_mhz: number | null;
+            /** Original Bytes */
+            original_bytes: number;
+            /** Protected */
+            protected: boolean | null;
+            /** Raw Hex */
+            raw_hex: string;
+            /** Sequence */
+            sequence: number | null;
+            /** Subtype */
+            subtype: number | null;
+            /** Timestamp */
+            timestamp: number;
+        };
+        /** AirReport */
+        AirReport: {
+            /**
+             * Can Establish Absence
+             * @default false
+             */
+            can_establish_absence: boolean;
+            /** Channel Changes */
+            channel_changes: {
+                [key: string]: unknown;
+            }[];
+            /** Dropped Packets */
+            dropped_packets: number | null;
+            /** Filename */
+            filename: string | null;
+            /** Frames */
+            frames: components["schemas"]["AirFrame"][];
+            /**
+             * Health
+             * @default unknown
+             */
+            health: string;
+            /** Import Id */
+            import_id: string | null;
+            /** Limits */
+            limits: string[];
+            /** Linktype */
+            linktype: number | null;
+            /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "independent" | "ap_local" | "same_phy";
+            /**
+             * Original Retained
+             * @default true
+             */
+            original_retained: boolean;
+            /** Pcap Artifact */
+            pcap_artifact: string | null;
+            /** Report Artifact */
+            report_artifact: string | null;
+            /** Sha256 */
+            sha256: string | null;
+            /** Stalls */
+            stalls: number[];
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+            /**
+             * Unsupported Frames
+             * @default 0
+             */
+            unsupported_frames: number;
+        };
         /** AnalyzeBody */
         AnalyzeBody: {
             /** Capture Id */
@@ -1264,6 +1490,46 @@ export interface components {
             /** Raw Hex */
             raw_hex: string;
         };
+        /** DescriptorDecode */
+        DescriptorDecode: {
+            /**
+             * Complete
+             * @default false
+             */
+            complete: boolean;
+            /**
+             * Consumer Match
+             * @default unverified
+             * @enum {string}
+             */
+            consumer_match: "matched" | "unverified";
+            /** Fields */
+            fields: {
+                [key: string]: number | boolean | null;
+            };
+            /** Invalid Words */
+            invalid_words: string[];
+            /**
+             * Layout Match
+             * @default unverified
+             * @enum {string}
+             */
+            layout_match: "matched" | "unverified";
+            /** Layout Source */
+            layout_source: {
+                [key: string]: string;
+            };
+            /** Limits */
+            limits: string[];
+            /** Matches Loaded Build */
+            matches_loaded_build: null;
+            /** Missing Words */
+            missing_words: string[];
+            /** Raw Words */
+            raw_words: {
+                [key: string]: string;
+            };
+        };
         /** DetectionReason */
         DetectionReason: {
             /** Detail */
@@ -1281,6 +1547,16 @@ export interface components {
         };
         /** Device */
         Device: {
+            /**
+             * Active Test Eligible
+             * @default false
+             */
+            active_test_eligible: boolean;
+            /**
+             * Active Test Reason
+             * @default active testing restricted to MT7922
+             */
+            active_test_reason: string;
             /**
              * Bus
              * @enum {string}
@@ -1349,6 +1625,16 @@ export interface components {
         };
         /** DeviceSummary */
         DeviceSummary: {
+            /**
+             * Active Test Eligible
+             * @default false
+             */
+            active_test_eligible: boolean;
+            /**
+             * Active Test Reason
+             * @default active testing restricted to MT7922
+             */
+            active_test_reason: string;
             /**
              * Bus
              * @enum {string}
@@ -1429,9 +1715,28 @@ export interface components {
             patterns: components["schemas"]["Pattern"][];
             /** Report Id */
             report_id: string;
-            scope: components["schemas"]["Scope"];
+            scope: components["schemas"]["whd__diagnostics__models__Scope"];
             /** Whd Version */
             whd_version: string;
+        };
+        /** Dimension */
+        Dimension: {
+            /** Basis */
+            basis: string;
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceRef"][];
+            /**
+             * Historical
+             * @default false
+             */
+            historical: boolean;
+            /** Limits */
+            limits: string | null;
+            /**
+             * Value
+             * @enum {string}
+             */
+            value: "yes" | "no" | "unknown" | "driver_only";
         };
         /** DriverInfo */
         DriverInfo: {
@@ -1476,6 +1781,51 @@ export interface components {
             phy: components["schemas"]["CapabilityFlags"];
             /** Ppe Hex */
             ppe_hex: string | null;
+        };
+        /** Epoch */
+        Epoch: {
+            /** Boot Id */
+            boot_id: string;
+            /** Device Id */
+            device_id: string;
+            /** End Ns */
+            end_ns: number | null;
+            /** First Missing */
+            first_missing: string | null;
+            /** Flags */
+            flags: string[];
+            /** Gaps */
+            gaps: components["schemas"]["Gap"][];
+            /**
+             * Historical
+             * @default true
+             */
+            historical: boolean;
+            /** Id */
+            id: string;
+            /** Interface */
+            interface: string | null;
+            /** Interface Lifetime */
+            interface_lifetime: string | null;
+            /** Local Address */
+            local_address: string | null;
+            /** Missing */
+            missing: string[];
+            /**
+             * Outcome
+             * @enum {string}
+             */
+            outcome: "associated" | "rejected" | "timed_out" | "disconnected" | "in_progress" | "unknown";
+            /** Peer */
+            peer: string | null;
+            /** Request Tokens */
+            request_tokens: string[];
+            /** Stages */
+            stages: components["schemas"]["StageObs"][];
+            /** Start Ns */
+            start_ns: number;
+            /** Started Observed */
+            started_observed: boolean;
         };
         /** Event */
         Event: {
@@ -1547,6 +1897,228 @@ export interface components {
             /** Server Wall */
             server_wall: number;
         };
+        /** EvidenceRef */
+        EvidenceRef: {
+            /** Event Id */
+            event_id: number | null;
+            /** Kind */
+            kind: string;
+            /**
+             * Source
+             * @default event
+             */
+            source: string;
+            /**
+             * Text
+             * @default
+             */
+            text: string;
+            /** Ts Boottime Ns */
+            ts_boottime_ns: number | null;
+        };
+        /** EvidenceReport */
+        EvidenceReport: {
+            /** Capture Id */
+            capture_id: string | null;
+            /** Counter Semantics */
+            counter_semantics: {
+                [key: string]: string;
+            }[];
+            /** Current Observations */
+            current_observations: {
+                [key: string]: unknown;
+            };
+            current_state: components["schemas"]["MloState"] | null;
+            /** Decoder Source */
+            decoder_source: {
+                [key: string]: unknown;
+            } | null;
+            /** Device Id */
+            device_id: string;
+            /** Epochs */
+            epochs: components["schemas"]["Epoch"][];
+            /**
+             * Historical
+             * @default true
+             */
+            historical: boolean;
+            /** Limits */
+            limits: string[];
+            /** Mcu Payloads */
+            mcu_payloads: {
+                [key: string]: unknown;
+            }[];
+            /** Mcu Transport */
+            mcu_transport: {
+                [key: string]: unknown;
+            }[];
+            /** Mode */
+            mode: string;
+            /** Observations */
+            observations: components["schemas"]["Event"][];
+            /** Packets */
+            packets: components["schemas"]["PacketPath"][];
+            /**
+             * Protocol
+             * @default unknown
+             * @enum {string}
+             */
+            protocol: "ordinary" | "mlo" | "unknown";
+            /** Snapshot States */
+            snapshot_states: components["schemas"]["MloState"][];
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+            /**
+             * Unassigned Observations
+             * @description Unattributed input records retained individually; not evidence for the selected device or link.
+             */
+            unassigned_observations: components["schemas"]["Event"][];
+            /** Unattributed Events */
+            unattributed_events: number;
+            /** Windows */
+            windows: components["schemas"]["EvidenceWindow"][];
+        };
+        /** EvidenceWindow */
+        EvidenceWindow: {
+            firmware: components["schemas"]["FwReport"];
+            /** Rx Frames */
+            rx_frames: components["schemas"]["RxFrame"][];
+            rx_summary: components["schemas"]["RxSummary"];
+            scope: components["schemas"]["whd__mlo__models__Scope"];
+            state: components["schemas"]["MloState"];
+        };
+        /** ExperimentRequest */
+        "ExperimentRequest-Input": {
+            /** Comparison Group */
+            comparison_group?: string | null;
+            /**
+             * Condition
+             * @default observation
+             * @enum {string}
+             */
+            condition: "control" | "fix" | "control_after" | "observation";
+            /**
+             * Count
+             * @default 3
+             */
+            count: number;
+            /** Device Id */
+            device_id: string;
+            /** Interface */
+            interface: string;
+            /**
+             * Port
+             * @default 5201
+             */
+            port: number;
+            /**
+             * Seconds
+             * @default 5
+             */
+            seconds: number;
+            /** Target */
+            target: string;
+            /**
+             * Tool
+             * @default ping
+             * @enum {string}
+             */
+            tool: "ping" | "iperf3";
+            /** Trace Events */
+            trace_events?: string[];
+            /**
+             * Wake Counters
+             * @default false
+             */
+            wake_counters: boolean;
+        };
+        /** ExperimentRequest */
+        "ExperimentRequest-Output": {
+            /** Comparison Group */
+            comparison_group: string | null;
+            /**
+             * Condition
+             * @default observation
+             * @enum {string}
+             */
+            condition: "control" | "fix" | "control_after" | "observation";
+            /**
+             * Count
+             * @default 3
+             */
+            count: number;
+            /** Device Id */
+            device_id: string;
+            /** Interface */
+            interface: string;
+            /**
+             * Port
+             * @default 5201
+             */
+            port: number;
+            /**
+             * Seconds
+             * @default 5
+             */
+            seconds: number;
+            /** Target */
+            target: string;
+            /**
+             * Tool
+             * @default ping
+             * @enum {string}
+             */
+            tool: "ping" | "iperf3";
+            /** Trace Events */
+            trace_events: string[];
+            /**
+             * Wake Counters
+             * @default false
+             */
+            wake_counters: boolean;
+        };
+        /** ExperimentResult */
+        ExperimentResult: {
+            /** After */
+            after: {
+                [key: string]: unknown;
+            };
+            /** Before */
+            before: {
+                [key: string]: unknown;
+            };
+            /** Capture Id */
+            capture_id: string;
+            /** Command */
+            command: string[];
+            /** Deltas */
+            deltas: {
+                [key: string]: number | null;
+            };
+            /** Error */
+            error: string | null;
+            /** Exit Code */
+            exit_code: number | null;
+            /** Limits */
+            limits: string[];
+            /**
+             * Output
+             * @default
+             */
+            output: string;
+            /** Per Link Deltas */
+            per_link_deltas: {
+                [key: string]: {
+                    [key: string]: number | null;
+                };
+            };
+            request: components["schemas"]["ExperimentRequest-Output"];
+            /** Status */
+            status: string;
+        };
         /** FirmwareInfo */
         FirmwareInfo: {
             /** Declared Files */
@@ -1575,6 +2147,73 @@ export interface components {
             title: string;
             /** Whd Feature */
             whd_feature: string | null;
+        };
+        /** FwOp */
+        FwOp: {
+            /**
+             * Bytes Available
+             * @default false
+             */
+            bytes_available: boolean;
+            /** Changed Vs Previous */
+            changed_vs_previous: {
+                [key: string]: unknown[];
+            };
+            /** Cmd */
+            cmd: number | null;
+            /** Cmd Name */
+            cmd_name: string | null;
+            /** Duration Us */
+            duration_us: number | null;
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceRef"][];
+            /** Link */
+            link: number | null;
+            /** Raw Len */
+            raw_len: number | null;
+            /** Requested */
+            requested: {
+                [key: string]: unknown;
+            };
+            /** Ret */
+            ret: number | null;
+            /** Seq */
+            seq: number;
+            /** Status */
+            status: string;
+            /** Token */
+            token: string;
+            /** Ts Done Ns */
+            ts_done_ns: number | null;
+            /** Ts Start Ns */
+            ts_start_ns: number | null;
+        };
+        /** FwReport */
+        FwReport: {
+            /** Flags */
+            flags: string[];
+            /** Gaps */
+            gaps: string[];
+            /** Generations */
+            generations: number[];
+            /** Links */
+            links: components["schemas"]["LinkIdentity"][];
+            /** Ops */
+            ops: components["schemas"]["FwOp"][];
+        };
+        /** Gap */
+        Gap: {
+            /** Collector */
+            collector: string | null;
+            /** Detail */
+            detail: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "no_collector" | "not_traced" | "absent_while_collected" | "not_applicable";
+            /** What */
+            what: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1859,6 +2498,54 @@ export interface components {
              */
             txfree_failed: number;
         };
+        /** LinkIdentity */
+        LinkIdentity: {
+            /** Completed Evidence */
+            completed_evidence: components["schemas"]["EvidenceRef"][];
+            /** Current */
+            current: {
+                [key: string]: unknown;
+            };
+            /** First Seen Ns */
+            first_seen_ns: number | null;
+            /** Last Seen Ns */
+            last_seen_ns: number | null;
+            /** Link Id */
+            link_id: number;
+            /** Sources */
+            sources: string[];
+        };
+        /** LinkState */
+        LinkState: {
+            active: components["schemas"]["Dimension"];
+            authenticated_delivery: components["schemas"]["Dimension"];
+            authorized: components["schemas"]["Dimension"];
+            /** Band */
+            band: string | null;
+            /** Bssid */
+            bssid: string | null;
+            /** Channel */
+            channel: number | null;
+            /** Conflicts */
+            conflicts: string[];
+            /** Counters */
+            counters: {
+                [key: string]: unknown;
+            };
+            /** Freq Mhz */
+            freq_mhz: number | null;
+            fw_programmed: components["schemas"]["Dimension"];
+            /** Link Id */
+            link_id: number;
+            /** Mac */
+            mac: string | null;
+            negotiated: components["schemas"]["Dimension"];
+            scope: components["schemas"]["whd__mlo__models__Scope"];
+            /** Wcid */
+            wcid: number | null;
+            /** Width Mhz */
+            width_mhz: number | null;
+        };
         /**
          * LiveCheck
          * @description One reading taken at analysis time, shown beside the historical claims so the report is not only a replay.
@@ -1890,7 +2577,7 @@ export interface components {
             /** Association Summary */
             association_summary: string | null;
             /** Connected */
-            connected: boolean;
+            connected: boolean | null;
             /** Errors */
             errors: {
                 [key: string]: string;
@@ -1907,6 +2594,26 @@ export interface components {
         LoginBody: {
             /** Token */
             token: string;
+        };
+        /** MaskDecode */
+        MaskDecode: {
+            /** Active */
+            active: number[] | null;
+            /** Basis */
+            basis: string;
+            /** Consistent */
+            consistent: boolean | null;
+            /**
+             * Layout
+             * @enum {string}
+             */
+            layout: "packed_active_valid" | "active_only_unverified" | "zero" | "unreadable";
+            /** Notes */
+            notes: string[];
+            /** Raw */
+            raw: number | null;
+            /** Valid */
+            valid: number[] | null;
         };
         /** Migration */
         Migration: {
@@ -1963,6 +2670,38 @@ export interface components {
             txpower_dbm: number | null;
             /** Width */
             width: string | null;
+        };
+        /** MloState */
+        MloState: {
+            /** Association Epoch */
+            association_epoch: string | null;
+            /** Boot Id */
+            boot_id: string;
+            /** Boottime Ns */
+            boottime_ns: number;
+            /** Device Id */
+            device_id: string;
+            /** Generated At */
+            generated_at: number;
+            /** Interface */
+            interface: string | null;
+            /** Legend */
+            legend: {
+                [key: string]: string;
+            };
+            /** Links */
+            links: components["schemas"]["LinkState"][];
+            /** Mac80211 Authorized */
+            mac80211_authorized: boolean | null;
+            mask: components["schemas"]["MaskDecode"];
+            /** Notes */
+            notes: string[];
+            /** Perturbations */
+            perturbations: string[];
+            /** Phy */
+            phy: string | null;
+            /** Sources */
+            sources: string[];
         };
         /** Mt76Snapshot */
         Mt76Snapshot: {
@@ -2099,6 +2838,70 @@ export interface components {
             reachable: boolean;
             /** Url */
             url: string;
+        };
+        /** PacketObservation */
+        PacketObservation: {
+            /** Decoded */
+            decoded: {
+                [key: string]: unknown;
+            };
+            /** Elapsed Ns */
+            elapsed_ns: number | null;
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceRef"][];
+            /**
+             * Explicit Boot
+             * @default false
+             */
+            explicit_boot: boolean;
+            /** Identifiers */
+            identifiers: {
+                [key: string]: string;
+            };
+            /** Observed Interface */
+            observed_interface: string | null;
+            /** Raw */
+            raw: string;
+            /** Stage */
+            stage: string;
+            /**
+             * Stage Class
+             * @default observation
+             * @enum {string}
+             */
+            stage_class: "queued_request" | "core_complete" | "firmware_result" | "verified_delivery" | "observation";
+            /** Ts Boottime Ns */
+            ts_boottime_ns: number;
+        };
+        /** PacketPath */
+        PacketPath: {
+            /** Acked */
+            acked: boolean | null;
+            /** Authenticated Delivery */
+            authenticated_delivery: boolean | null;
+            /** Correlation */
+            correlation: string;
+            /** Delivered */
+            delivered: boolean | null;
+            /**
+             * Direction
+             * @default unknown
+             * @enum {string}
+             */
+            direction: "tx" | "rx" | "exchange" | "unknown";
+            /** Duration Ns */
+            duration_ns: number | null;
+            /** First Missing */
+            first_missing: string | null;
+            /** Gaps */
+            gaps: components["schemas"]["Gap"][];
+            /** Id */
+            id: string;
+            /** Limits */
+            limits: string[];
+            /** Observations */
+            observations: components["schemas"]["PacketObservation"][];
+            scope: components["schemas"]["whd__mlo__models__Scope"];
         };
         /** Pattern */
         Pattern: {
@@ -2491,6 +3294,144 @@ export interface components {
             /** Type */
             type: string | null;
         };
+        /** RxFrame */
+        RxFrame: {
+            /** Association Epoch */
+            association_epoch: string | null;
+            /** Authenticated */
+            authenticated: boolean | null;
+            /** Boot Id */
+            boot_id: string | null;
+            /** Boundary Observations */
+            boundary_observations: {
+                [key: string]: string;
+            }[];
+            /** Channel Matches */
+            channel_matches: boolean | null;
+            /** Chfreq */
+            chfreq: number | null;
+            /** Decrypted */
+            decrypted: boolean | null;
+            /**
+             * Delivered
+             * @default false
+             */
+            delivered: boolean;
+            /** Desc Band */
+            desc_band: number | null;
+            descriptor_decode: components["schemas"]["DescriptorDecode"] | null;
+            /** Device Id */
+            device_id: string | null;
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceRef"][];
+            /** Expected Channel */
+            expected_channel: number | null;
+            /**
+             * Explicit Boot
+             * @default false
+             */
+            explicit_boot: boolean;
+            /** Fcs Err */
+            fcs_err: number | null;
+            /** Flags */
+            flags: string | null;
+            /** Freq Mhz */
+            freq_mhz: number | null;
+            /** Fw Idx */
+            fw_idx: number | null;
+            /** Icv Err */
+            icv_err: number | null;
+            /** Initial Link */
+            initial_link: number | null;
+            /** Initial Wcid */
+            initial_wcid: number | null;
+            /** Interface */
+            interface: string | null;
+            /** Interface Lifetime */
+            interface_lifetime: string | null;
+            /**
+             * Join Ambiguous
+             * @default false
+             */
+            join_ambiguous: boolean;
+            /**
+             * Join Basis
+             * @default adjacent driver log lines (no packet identifier available)
+             */
+            join_basis: string;
+            /** Link Lifetime */
+            link_lifetime: string | null;
+            /**
+             * Mac80211 Rx Reported
+             * @default false
+             */
+            mac80211_rx_reported: boolean;
+            /** Notes */
+            notes: string[];
+            /** Observed Interface */
+            observed_interface: string | null;
+            /** Packet Id */
+            packet_id: string | null;
+            /** Pn */
+            pn: string | null;
+            /**
+             * Pn Drop Reported
+             * @default false
+             */
+            pn_drop_reported: boolean;
+            /**
+             * Pn Ok Reported
+             * @default false
+             */
+            pn_ok_reported: boolean;
+            /** Raw Descriptor Words */
+            raw_descriptor_words: {
+                [key: string]: string;
+            };
+            /** Remap From Link */
+            remap_from_link: number | null;
+            /** Remap To Link */
+            remap_to_link: number | null;
+            /** Resolved Link */
+            resolved_link: number | null;
+            /** Resolved Wcid */
+            resolved_wcid: number | null;
+            /** Sec Mode */
+            sec_mode: number | null;
+            /** Skbaddr */
+            skbaddr: string | null;
+            /** Tkip Mic Err */
+            tkip_mic_err: number | null;
+            /** Ts Boottime Ns */
+            ts_boottime_ns: number;
+            /** Verdict */
+            verdict: string;
+            /** Wcid Band */
+            wcid_band: number | null;
+        };
+        /** RxSummary */
+        RxSummary: {
+            /** Authenticated By Link */
+            authenticated_by_link: {
+                [key: string]: number;
+            };
+            /** By Resolved Link */
+            by_resolved_link: {
+                [key: string]: number;
+            };
+            /** Flags */
+            flags: string[];
+            /** Frames */
+            frames: number;
+            /** Note */
+            note: string;
+            /** Remap None */
+            remap_none: number;
+            /** Verdicts */
+            verdicts: {
+                [key: string]: number;
+            };
+        };
         /** ScanBss */
         ScanBss: {
             /** Beacon Interval */
@@ -2518,48 +3459,6 @@ export interface components {
             /** Status */
             status: string | null;
         };
-        /** Scope */
-        Scope: {
-            /** Capture Id */
-            capture_id: string | null;
-            /** Demo */
-            demo: boolean;
-            /** Device Ids */
-            device_ids: string[];
-            /** Event Count */
-            event_count: number;
-            /** First Ns */
-            first_ns: number | null;
-            /**
-             * Imported
-             * @default false
-             */
-            imported: boolean;
-            /** Last Ns */
-            last_ns: number | null;
-            /**
-             * Live
-             * @description true when the window ends now on this host (not a stored capture)
-             * @default false
-             */
-            live: boolean;
-            /**
-             * Newest Event Age S
-             * @description age of the newest analyzed event when the report was generated (live only)
-             */
-            newest_event_age_s: number | null;
-            /** Significant Event Count */
-            significant_event_count: number;
-            /** Sources */
-            sources: string[];
-            /**
-             * Unattributed Events
-             * @default 0
-             */
-            unattributed_events: number;
-            /** Window S */
-            window_s: number | null;
-        };
         /**
          * SectionMeta
          * @description Provenance attached to every data section shown in the UI.
@@ -2577,6 +3476,69 @@ export interface components {
             note: string | null;
             /** Sources */
             sources: string[];
+        };
+        /** StackCapture */
+        StackCapture: {
+            /** Boot Id */
+            boot_id: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "tx" | "rx";
+            /** Events */
+            events: components["schemas"]["Event"][];
+            /** Import Id */
+            import_id: string | null;
+            /** Interface */
+            interface: string;
+            /** Limits */
+            limits: string[];
+            /**
+             * Original Retained
+             * @default true
+             */
+            original_retained: boolean;
+            /** Pcap Artifact */
+            pcap_artifact: string | null;
+            /** Report Artifact */
+            report_artifact: string | null;
+            /** Sha256 */
+            sha256: string;
+            /**
+             * Truncated
+             * @default false
+             */
+            truncated: boolean;
+            /**
+             * Unsupported
+             * @default 0
+             */
+            unsupported: number;
+            /** Wall Minus Boot Ns */
+            wall_minus_boot_ns: number;
+        };
+        /** StageObs */
+        StageObs: {
+            /** Evidence */
+            evidence: components["schemas"]["EvidenceRef"][];
+            /** Link Id */
+            link_id: number | null;
+            /** Note */
+            note: string | null;
+            /** Result */
+            result: string | null;
+            /** Stage */
+            stage: string;
+            /**
+             * Stage Class
+             * @enum {string}
+             */
+            stage_class: "queued_request" | "core_complete" | "firmware_result" | "verified_delivery" | "observation";
+            /** Token */
+            token: string | null;
+            /** Ts Boottime Ns */
+            ts_boottime_ns: number | null;
         };
         /** Station */
         Station: {
@@ -2917,6 +3879,11 @@ export interface components {
              */
             events: string[];
             /**
+             * Interface
+             * @description verified MT7922 interface required for live device filtering
+             */
+            interface?: string | null;
+            /**
              * Max Seconds
              * @default 600
              */
@@ -3215,6 +4182,8 @@ export interface components {
         };
         /** WirelessLive */
         WirelessLive: {
+            /** Boot Id */
+            boot_id: string | null;
             /** Capability Summary */
             capability_summary: {
                 [key: string]: unknown;
@@ -3231,6 +4200,70 @@ export interface components {
             regulatory: components["schemas"]["RegDomain"][];
             /** Taken At */
             taken_at: number;
+        };
+        /** Scope */
+        whd__diagnostics__models__Scope: {
+            /** Capture Id */
+            capture_id: string | null;
+            /** Demo */
+            demo: boolean;
+            /** Device Ids */
+            device_ids: string[];
+            /** Event Count */
+            event_count: number;
+            /** First Ns */
+            first_ns: number | null;
+            /**
+             * Imported
+             * @default false
+             */
+            imported: boolean;
+            /** Last Ns */
+            last_ns: number | null;
+            /**
+             * Live
+             * @description true when the window ends now on this host (not a stored capture)
+             * @default false
+             */
+            live: boolean;
+            /**
+             * Newest Event Age S
+             * @description age of the newest analyzed event when the report was generated (live only)
+             */
+            newest_event_age_s: number | null;
+            /** Significant Event Count */
+            significant_event_count: number;
+            /** Sources */
+            sources: string[];
+            /**
+             * Unattributed Events
+             * @default 0
+             */
+            unattributed_events: number;
+            /** Window S */
+            window_s: number | null;
+        };
+        /**
+         * Scope
+         * @description Every observation belongs to exactly one boot, device, association epoch and (optionally) link lifetime.
+         */
+        whd__mlo__models__Scope: {
+            /** Association Epoch */
+            association_epoch: string | null;
+            /** Boot Id */
+            boot_id: string;
+            /** Device Id */
+            device_id: string;
+            /** Interface */
+            interface: string | null;
+            /** Interface Lifetime */
+            interface_lifetime: string | null;
+            /** Link Id */
+            link_id: number | null;
+            /** Link Lifetime */
+            link_lifetime: string | null;
+            /** Phy */
+            phy: string | null;
         };
     };
     responses: never;
@@ -3470,6 +4503,38 @@ export interface operations {
             };
         };
     };
+    artifact_api_v1_captures__cid__artifacts__name__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cid: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     bundle_api_v1_captures__cid__bundle_get: {
         parameters: {
             query?: {
@@ -3589,6 +4654,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    air_imports_api_v1_captures__cid__mlo_air_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirReport"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    air_upload_api_v1_captures__cid__mlo_air_post: {
+        parameters: {
+            query?: {
+                origin?: string;
+                filename?: string;
+            };
+            header?: never;
+            path: {
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AirReport"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    capture_evidence_api_v1_captures__cid__mlo_evidence_get: {
+        parameters: {
+            query?: {
+                device_id?: string | null;
+            };
+            header?: never;
+            path: {
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceReport"];
                 };
             };
             /** @description Validation Error */
@@ -3734,6 +4897,73 @@ export interface operations {
             };
         };
     };
+    stack_imports_api_v1_captures__cid__wifi_stack_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackCapture"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stack_upload_api_v1_captures__cid__wifi_stack_post: {
+        parameters: {
+            query: {
+                direction: "tx" | "rx";
+                interface: string;
+                boot_id: string;
+                wall_minus_boot_ns: number;
+            };
+            header?: never;
+            path: {
+                cid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackCapture"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_devices_api_v1_devices_get: {
         parameters: {
             query?: never;
@@ -3805,6 +5035,42 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    device_evidence_api_v1_devices__device_id__mlo_evidence_get: {
+        parameters: {
+            query?: {
+                wake?: boolean;
+                phy?: string | null;
+                interface?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                device_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvidenceReport"];
                 };
             };
             /** @description Validation Error */
@@ -4356,6 +5622,94 @@ export interface operations {
         };
     };
     helper_status_api_v1_helper_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    comparisons_api_v1_mlo_comparisons_get: {
+        parameters: {
+            query: {
+                group: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    experiment_api_v1_mlo_experiments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExperimentRequest-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExperimentResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    monitors_api_v1_mlo_monitors_get: {
         parameters: {
             query?: never;
             header?: never;

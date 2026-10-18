@@ -88,3 +88,14 @@ describe("stream filter guard", () => {
     expect(acceptsEvent({ categories: ["scan"] }, ev("dev-a", "mlo", "info"))).toBe(false);
   });
 });
+
+
+test("connection history never carries state across interface lifetimes or boots", () => {
+  const t = deriveTransitions([
+    ev("assoc.associated", 1, { data: { boot_id: "boot-a", wdev: 1 } }),
+    ev("assoc.associated", 2, { data: { boot_id: "boot-a", wdev: 2 } }),
+    ev("assoc.associated", 3, { data: { boot_id: "boot-b", wdev: 2 } }),
+  ]);
+  expect(t).toHaveLength(3);
+  expect(t.every(x => x.from === null)).toBe(true);
+});

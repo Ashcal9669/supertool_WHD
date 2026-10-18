@@ -169,6 +169,7 @@ export function CapturesPage() {
                   </>)}
                   {c.state !== "running" && (<>
                     <Link className="rounded border border-line px-2.5 py-1 text-[12px] hover:border-accent hover:text-accent" to={`/viz?capture=${c.id}`}>Visualize</Link>
+                    <Link className="rounded border border-line px-2.5 py-1 text-[12px] hover:border-accent hover:text-accent" to={`/mlo?capture=${c.id}`}>MLO evidence</Link>
                     <Link className="rounded border border-line px-2.5 py-1 text-[12px] hover:border-accent hover:text-accent" to={`/diagnostics?capture=${c.id}`}>Diagnose</Link>
                   </>)}
                   <Button onClick={() => setOpen(open === c.id ? null : c.id)}>{open === c.id ? "Hide" : "Details / export"}</Button>

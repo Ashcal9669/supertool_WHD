@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from whd.api.deps import get_state, require_auth
 from whd.drivers import mt76
 from whd.helper.protocol import HelperError
+from whd.mlo.selection import verify_live_adapter
 from whd.model.device import Device
 from whd.model.events import EventFilter
 from whd.state import AppState
@@ -39,6 +40,17 @@ async def _dev(st: AppState, device_id: str) -> Device:
     if not dev.present:
         raise HTTPException(409, "device not present")
     return dev
+
+
+async def _wake_guard(st: AppState, dev: Device) -> None:
+    if not st.host.root.is_live:
+        return
+    if not dev.active_test_eligible or not dev.netdevs:
+        raise HTTPException(422, "active wake measurements require a bound MT7922 adapter")
+    try:
+        await asyncio.to_thread(verify_live_adapter, st.host, dev.netdevs[0])
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @router.get("/devices/{device_id}/mt76/instrumentation", response_model=mt76.Instrumentation)
@@ -67,6 +79,8 @@ async def snapshot(
     device_id: str, wake: bool = False, phy: str | None = None, actor: str = Auth, st: AppState = State
 ) -> mt76.Mt76Snapshot:
     dev = await _dev(st, device_id)
+    if wake:
+        await _wake_guard(st, dev)
     try:
         snap = await asyncio.to_thread(mt76.read_snapshot, st.host, dev, wake, phy)
     except HelperError as e:
@@ -147,6 +161,8 @@ async def raw_read(
     """The unmodified text of one debugfs file, with when it was read. Passive files are always readable; files that
     wake the chip need wake=true (and are audited); MMIO/MCU/never-tier files are refused here and by the helper."""
     dev = await _dev(st, device_id)
+    if wake:
+        await _wake_guard(st, dev)
     h = st.host.helper
     if h is None or not h.available:
         raise HTTPException(409, "whd-helper is not running; mt76 debugfs requires root")
